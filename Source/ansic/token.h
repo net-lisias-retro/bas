@@ -134,6 +134,7 @@ enum TokenType
   T_EXITDO,
   T_EXITFOR,
   T_FIELD,
+  T_FILES,
   T_FNEND,
   T_FNEXIT,
   T_FNRETURN,

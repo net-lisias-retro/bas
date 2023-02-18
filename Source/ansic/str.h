@@ -33,6 +33,7 @@ extern void String_ucase(struct String *this);
 extern void String_lcase(struct String *this);
 extern int String_size(struct String *this, size_t length);
 extern int String_cmp(const struct String *this, const struct String *s);
+extern int String_quote(struct String *this);
 extern void String_lset(struct String *this, const struct String *s);
 extern void String_rset(struct String *this, const struct String *s);
 extern void String_set(struct String *this, size_t pos, const struct String *s, size_t length);

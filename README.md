@@ -40,9 +40,7 @@ UNIX systems.
 
 This project is licensed as follows:
 
-* [LGPL 2.1](https://www.gnu.org/licenses/lgpl-2.1.html)
-
-Please note that upgrading the license to a future GPL license **IS NOT ALLOWED** for this work, as this author **DID NOT** added the "or (at your option) any later version" on the license.
+* [MIT](https://opensource.org/license/mit/) (expat)
 
 Please note the copyrights and trademarks in [NOTICE](./NOTICE).
 

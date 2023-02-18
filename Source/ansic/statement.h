@@ -33,6 +33,7 @@ extern struct Value *stmt_ERASE(struct Value *value);
 extern struct Value *stmt_EXITDO(struct Value *value);
 extern struct Value *stmt_EXITFOR(struct Value *value);
 extern struct Value *stmt_FIELD(struct Value *value);
+extern struct Value *stmt_FILES(struct Value *value);
 extern struct Value *stmt_FOR(struct Value *value);
 extern struct Value *stmt_GET_PUT(struct Value *value);
 extern struct Value *stmt_GOSUB(struct Value *value);

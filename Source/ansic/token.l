@@ -519,6 +519,13 @@ end[ \t]+function	{
                           }
                           return T_FIELD;
                         }
+"files"			{
+                          if (cur)
+                          {
+                            cur->statement=stmt_FILES;
+                          }
+                          return T_FILES;
+                        }
 "fnend"			{
                           if (cur)
                           {
@@ -1374,6 +1381,7 @@ void Token_destroy(struct Token *token) /*{{{*/
       case T_EXITDO:            break;
       case T_EXITFOR:           break;
       case T_FIELD:             break;
+      case T_FILES:             break;
       case T_FNEND:             break;
       case T_FNEXIT:            break;
       case T_FNRETURN:          break;
@@ -1570,6 +1578,7 @@ struct String *Token_toString(struct Token *token, struct Token *spaceto, struct
     /* T_EXITDO             */ {"exit do",1},
     /* T_EXITFOR            */ {"exit for",1},
     /* T_FIELD              */ {"field",1},
+    /* T_FILES              */ {"files",1},
     /* T_FNEND              */ {"fnend",1},
     /* T_FNEXIT             */ {"exit function",1},
     /* T_FNRETURN           */ {"fnreturn",1},

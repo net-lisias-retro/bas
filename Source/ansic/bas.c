@@ -75,7 +75,7 @@ static struct Pc curdata;
 static struct Pc nextdata;
 static enum { DECLARE, COMPILE, INTERPRET } pass;
 static int stopped;
-static int optionbase;
+static long int optionbase;
 static struct Pc pc;
 static struct Auto stack;
 static struct Program program;
@@ -428,404 +428,6 @@ static struct Value *func(struct Value *value) /*{{{*/
 }
 /*}}}*/
 
-#ifdef USE_LR0
-/* Grammar with LR(0) sets */ /*{{{*/
-/*
-Grammar:
-
-1 EV -> E
-2 E  -> E op E
-3 E  -> op E
-4 E  -> ( E )
-5 E  -> value
-
-i0:
-EV -> . E                goto(0,E)=5
-E  -> . E op E           goto(0,E)=5
-E  -> . op E      +,-    shift 2
-E  -> . ( E )     (      shift 3
-E  -> . value     value  shift 4
-
-i5:
-EV -> E .         else   accept
-E  -> E . op E    op     shift 1
-
-i2:
-E  -> op . E             goto(2,E)=6
-E  -> . E op E           goto(2,E)=6
-E  -> . op E      +,-    shift 2
-E  -> . ( E )     (      shift 3
-E  -> . value     value  shift 4
-
-i3:
-E  -> ( . E )            goto(3,E)=7
-E  -> . E op E           goto(3,E)=7
-E  -> . op E      +,-    shift 2
-E  -> . ( E )     (      shift 3
-E  -> . value     value  shift 4
-
-i4:
-E  -> value .            reduce 5
-
-i1:
-E  -> E op . E           goto(1,E)=8
-E  -> . E op E           goto(1,E)=8
-E  -> . op E      +,-    shift 2
-E  -> . ( E )     (      shift 3
-E  -> . value     value  shift 4
-
-i6:
-E  -> op E .             reduce 3
-E  -> E . op E    op*    shift 1 *=if stack[-2] contains op of unary lower priority
-
-i7:
-E  -> ( E . )     )      shift 9
-E  -> E . op E    op     shift 1
-
-i8:
-E  -> E op E .           reduce 2
-E  -> E . op E    op*    shift 1 *=if stack[-2] contains op of lower priority or if
-                                   if it is of equal priority and right associative
-
-i9:
-E  -> ( E ) .            reduce 4
-
-*/
-/*}}}*/
-static struct Value *eval(struct Value *value, const char *desc) /*{{{*/
-{
-  /* variables */ /*{{{*/
-  static const int gotoState[10]={ 5,8,6,7,-1,-1,-1,-1,-1,-1 };
-  int capacity=10;
-  struct Pdastack
-  {
-    union
-    {
-      enum TokenType token;
-      struct Value value;
-    } u;
-    char state;
-  };
-  struct Pdastack *pdastack=malloc(capacity*sizeof(struct Pdastack));
-  struct Pdastack *sp=pdastack;
-  struct Pdastack *stackEnd=pdastack+capacity-1;
-  enum TokenType ip;
-  /*}}}*/
-
-  sp->state=0;
-  while (1)
-  {
-    if (sp==stackEnd)
-    {
-      pdastack=realloc(pdastack,(capacity+10)*sizeof(struct Pdastack));
-      sp=pdastack+capacity-1;
-      capacity+=10;
-      stackEnd=pdastack+capacity-1;
-    }
-    ip=pc.token->type;
-    switch (sp->state)
-    {
-      case 0:
-      case 1:
-      case 2:
-      case 3: /*{{{*/ /* including 4 */
-      {
-        if (ip==T_IDENTIFIER) /*{{{*/
-        {
-          /* printf("state %d: shift 4\n",sp->state); */
-          /* printf("state 4: reduce E -> value\n"); */
-          ++sp;
-          sp->state=gotoState[(sp-1)->state];
-          if (pass==COMPILE)
-          {
-            if
-            (
-              ((pc.token+1)->type==T_OP || Auto_find(&stack,pc.token->u.identifier)==0)
-              && Global_find(&globals,pc.token->u.identifier,(pc.token+1)->type==T_OP)==0
-            )
-            {
-              Value_new_ERROR(value,UNDECLARED);
-              goto error;
-            }
-          }
-          if (pass!=DECLARE && (pc.token->u.identifier->sym->type==GLOBALVAR || pc.token->u.identifier->sym->type==GLOBALARRAY || pc.token->u.identifier->sym->type==LOCALVAR))
-          {
-            struct Value *l;
-
-            if ((l=lvalue(value))->type==V_ERROR) goto error;
-            Value_clone(&sp->u.value,l);
-          }
-          else
-          {
-            struct Pc var=pc;
-
-            func(&sp->u.value);
-            if (sp->u.value.type==V_VOID)
-            {
-              pc=var;
-              Value_new_ERROR(value,VOIDVALUE);
-              goto error;
-            }
-          }
-        }
-        /*}}}*/
-        else if (ip==T_INTEGER) /*{{{*/
-        {
-          /* printf("state %d: shift 4\n",sp->state); */
-          /* printf("state 4: reduce E -> value\n"); */
-          ++sp;
-          sp->state=gotoState[(sp-1)->state];
-          VALUE_NEW_INTEGER(&sp->u.value,pc.token->u.integer);
-          ++pc.token;
-        }
-        /*}}}*/
-        else if (ip==T_REAL) /*{{{*/
-        {
-          /* printf("state %d: shift 4\n",sp->state); */
-          /* printf("state 4: reduce E -> value\n"); */
-          ++sp;
-          sp->state=gotoState[(sp-1)->state];
-          VALUE_NEW_REAL(&sp->u.value,pc.token->u.real);
-          ++pc.token;
-        }
-        /*}}}*/
-        else if (TOKEN_ISUNARYOPERATOR(ip)) /*{{{*/
-        {
-          /* printf("state %d: shift 2\n",sp->state); */
-          ++sp;
-          sp->state=2;
-          sp->u.token=ip;
-          ++pc.token;
-        }
-        /*}}}*/
-        else if (ip==T_HEXINTEGER) /*{{{*/
-        {
-          /* printf("state %d: shift 4\n",sp->state); */
-          /* printf("state 4: reduce E -> value\n"); */
-          ++sp;
-          sp->state=gotoState[(sp-1)->state];
-          VALUE_NEW_INTEGER(&sp->u.value,pc.token->u.hexinteger);
-          ++pc.token;
-        }
-        /*}}}*/
-        else if (ip==T_OCTINTEGER) /*{{{*/
-        {
-          /* printf("state %d: shift 4\n",sp->state); */
-          /* printf("state 4: reduce E -> value\n"); */
-          ++sp;
-          sp->state=gotoState[(sp-1)->state];
-          VALUE_NEW_INTEGER(&sp->u.value,pc.token->u.octinteger);
-          ++pc.token;
-        }
-        /*}}}*/
-        else if (ip==T_OP) /*{{{*/
-        {
-          /* printf("state %d: shift 3\n",sp->state); */
-          ++sp;
-          sp->state=3;
-          sp->u.token=T_OP;
-          ++pc.token;
-        }
-        /*}}}*/
-        else if (ip==T_STRING) /*{{{*/
-        {
-          /* printf("state %d: shift 4\n",sp->state); */
-          /* printf("state 4: reduce E -> value\n"); */
-          ++sp;
-          sp->state=gotoState[(sp-1)->state];
-          Value_new_STRING(&sp->u.value);
-          String_destroy(&sp->u.value.u.string);
-          String_clone(&sp->u.value.u.string,pc.token->u.string);
-          ++pc.token;
-        }
-        /*}}}*/
-        else /*{{{*/
-        {
-          char state=sp->state;
-
-          if (state==0)
-          {
-            if (desc) Value_new_ERROR(value,MISSINGEXPR,desc);
-            else value=(struct Value*)0;
-          }
-          else Value_new_ERROR(value,MISSINGEXPR,_("operand"));
-          goto error;
-        }
-        /*}}}*/
-        break;
-      }
-      /*}}}*/
-      case 5: /*{{{*/
-      {
-        if (TOKEN_ISBINARYOPERATOR(ip))
-        {
-          /* printf("state %d: shift 1\n",sp->state); */
-          ++sp;
-          sp->state=1;
-          sp->u.token=ip;
-          ++pc.token;
-          break;
-        }
-        else
-        {
-          assert(sp==pdastack+1);
-          *value=sp->u.value;
-          free(pdastack);
-          return value;
-        }
-        break;
-      }
-      /*}}}*/
-      case 6: /*{{{*/
-      {
-        if (TOKEN_ISBINARYOPERATOR(ip) && TOKEN_UNARYPRIORITY((sp-1)->u.token)<TOKEN_BINARYPRIORITY(ip))
-        {
-          assert(TOKEN_ISUNARYOPERATOR((sp-1)->u.token));
-          /* printf("state %d: shift 1 (not reducing E -> op E)\n",sp->state); */
-          ++sp;
-          sp->state=1;
-          sp->u.token=ip;
-          ++pc.token;
-        }
-        else
-        {
-          enum TokenType op;
-
-          /* printf("reduce E -> op E\n"); */
-          --sp;
-          op=sp->u.token;
-          sp->u.value=(sp+1)->u.value;
-          switch (op)
-          {
-            case T_PLUS: break;
-            case T_MINUS: Value_uneg(&sp->u.value,pass==INTERPRET); break;
-            case T_NOT: Value_unot(&sp->u.value,pass==INTERPRET); break;
-            default: assert(0);
-          }
-          sp->state=gotoState[(sp-1)->state];
-          if (sp->u.value.type==V_ERROR)
-          {
-            *value=sp->u.value;
-            --sp;
-            goto error;
-          }
-        }
-        break;
-      }
-      /*}}}*/
-      case 7: /*{{{*/ /* including 9 */
-      {
-        if (TOKEN_ISBINARYOPERATOR(ip))
-        {
-          /* printf("state %d: shift 1\n"sp->state); */
-          ++sp;
-          sp->state=1;
-          sp->u.token=ip;
-          ++pc.token;
-        }
-        else if (ip==T_CP)
-        {
-          /* printf("state %d: shift 9\n",sp->state); */
-          /* printf("state 9: reduce E -> ( E )\n"); */
-          --sp;
-          sp->state=gotoState[(sp-1)->state];
-          sp->u.value=(sp+1)->u.value;
-          ++pc.token;
-        }
-        else
-        {
-          Value_new_ERROR(value,MISSINGCP);
-          goto error;
-        }
-        break;
-      }
-      /*}}}*/
-      case 8: /*{{{*/
-      {
-        int p1,p2;
-
-        if
-        (
-          TOKEN_ISBINARYOPERATOR(ip)
-          &&
-          (
-            ((p1=TOKEN_BINARYPRIORITY((sp-1)->u.token))<(p2=TOKEN_BINARYPRIORITY(ip)))
-            || (p1==p2 && TOKEN_ISRIGHTASSOCIATIVE((sp-1)->u.token))
-          )
-        )
-        {
-          /* printf("state %d: shift 1\n",sp->state); */
-          ++sp;
-          sp->state=1;
-          sp->u.token=ip;
-          ++pc.token;
-        }
-        else
-        {
-          /* printf("state %d: reduce E -> E op E\n",sp->state); */
-          if (Value_commonType[(sp-2)->u.value.type][sp->u.value.type]==V_ERROR)
-          {
-            Value_destroy(&sp->u.value);
-            sp-=2;
-            Value_destroy(&sp->u.value);
-            Value_new_ERROR(value,INVALIDOPERAND);
-            --sp;
-            goto error;
-          }
-          else switch ((sp-1)->u.token)
-          {
-            case T_LT:    Value_lt(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_LE:    Value_le(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_EQ:    Value_eq(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_GE:    Value_ge(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_GT:    Value_gt(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_NE:    Value_ne(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_PLUS:  Value_add(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_MINUS: Value_sub(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_MULT:  Value_mult(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_DIV:   Value_div(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_IDIV:  Value_idiv(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_MOD:   Value_mod(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_POW:   Value_pow(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_AND:   Value_and(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_OR:    Value_or(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_XOR:   Value_xor(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_EQV:   Value_eqv(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            case T_IMP:   Value_imp(&(sp-2)->u.value,&sp->u.value,pass==INTERPRET); break;
-            default:      assert(0);
-          }
-          Value_destroy(&sp->u.value);
-          sp-=2;
-          sp->state=gotoState[(sp-1)->state];
-          if (sp->u.value.type==V_ERROR)
-          {
-            *value=sp->u.value;
-            --sp;
-            goto error;
-          }
-        }
-        break;
-      }
-      /*}}}*/
-    }
-  }
-  error:
-  while (sp>pdastack)
-  {
-    switch (sp->state)
-    {
-      case 5:
-      case 6:
-      case 7:
-      case 8: Value_destroy(&sp->u.value);
-    }
-    --sp;
-  }
-  free(pdastack);
-  return value;
-}
-/*}}}*/
-#else
 static inline struct Value *binarydown(struct Value *value, struct Value *(level)(struct Value *value), const int prio) /*{{{*/
 {
   enum TokenType op;
@@ -997,7 +599,8 @@ static struct Value *eval8(struct Value *value) /*{{{*/
     /*}}}*/
     default: /*{{{*/
     {
-      return (struct Value *)0;
+      if (TOKEN_ISUNARYOPERATOR(pc.token->type)) return unarydown(value,eval8,6);
+      else return (struct Value *)0;
     }
     /*}}}*/
   }
@@ -1060,7 +663,6 @@ static struct Value *eval(struct Value *value, const char *desc) /*{{{*/
   else return value;
 }
 /*}}}*/
-#endif
 
 static void new(void) /*{{{*/
 {
@@ -1080,9 +682,10 @@ static void pushLabel(enum LabelType type, struct Pc *patch) /*{{{*/
   {
     struct LabelStack *more;
 
-    more=realloc(labelStack,sizeof(struct LabelStack)*(labelStackCapacity?(labelStackCapacity*=2):(32)));
+    more=realloc(labelStack,sizeof(struct LabelStack)*(labelStackCapacity?(labelStackCapacity*=2):(labelStackCapacity=32)));
     labelStack=more;
   }
+  assert(labelStackPointer<labelStackCapacity);
   labelStack[labelStackPointer].type=type;
   labelStack[labelStackPointer].patch=*patch;
   ++labelStackPointer;
@@ -1153,6 +756,7 @@ static struct Value *assign(struct Value *value) /*{{{*/
 {
   struct Pc expr;
 
+  assert(pc.token->type==T_IDENTIFIER);
   if (strcasecmp(pc.token->u.identifier->name,"mid$")==0) /* mid$(a$,n,m)=b$ */ /*{{{*/
   {
     long int n,m;
@@ -1210,6 +814,8 @@ static struct Value *assign(struct Value *value) /*{{{*/
 
     for (;;)
     {
+      if (pc.token->type!=T_IDENTIFIER) return Value_new_ERROR(value,MISSINGVARIDENT);
+
       if (used==capacity)
       {
         struct Value **more;
@@ -1641,7 +1247,7 @@ void bas_interpreter(void) /*{{{*/
   if (FS_istty(STDCHANNEL))
   {
     FS_putChars(STDCHANNEL,"bas " VERSION "\n");
-    FS_putChars(STDCHANNEL,"Copyright 1999-2013 Michael Haardt.\n");
+    FS_putChars(STDCHANNEL,"Copyright 1999-2014 Michael Haardt.\n");
     FS_putChars(STDCHANNEL,_("This is free software with ABSOLUTELY NO WARRANTY.\n"));
   }
   new();
@@ -1690,7 +1296,7 @@ void bas_interpreter(void) /*{{{*/
           {
             struct Pc where;
 
-            if (Program_goLine(&program,line->u.integer,&where)==(struct Pc*)0) FS_putChars(STDCHANNEL,(NOSUCHLINE));
+            if (Program_goLine(&program,line->u.integer,&where)==(struct Pc*)0) FS_putChars(STDCHANNEL,NOSUCHLINE_MSG);
             else Program_delete(&program,&where,&where);
             Token_destroy(line);
           }

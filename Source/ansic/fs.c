@@ -145,7 +145,7 @@ static int refill(int dev) /*{{{*/
   }
 }
 /*}}}*/
-static int edit(int chn, int onl) /*{{{*/
+static int edit(int chn, int output_nl) /*{{{*/
 {
   struct FileStream *f=file[chn];
   char *buf=f->inBuf;
@@ -195,7 +195,7 @@ static int edit(int chn, int onl) /*{{{*/
         }
         else FS_putChar(chn,ch);
       }
-      else if (onl) FS_putChar(chn,'\n');
+      else if (output_nl) FS_putChar(chn,'\n');
       f->inBuf[f->inCapacity++]=ch;
     }
   } while (ch!='\n');
@@ -337,7 +337,7 @@ static int resetcolour(int chn) /*{{{*/
   return 0;
 }
 /*}}}*/
-static void carriage_return(int chn) /*{{{*/
+static void crlf(int chn) /*{{{*/
 {
   if (cr) mytputs(cr,0,outc);
   else outc('\r');
@@ -374,7 +374,7 @@ static int resetcolour(int chn) /*{{{*/
   return 0;
 }
 /*}}}*/
-static void carriage_return(int chn) /*{{{*/
+static void crlf(int chn) /*{{{*/
 {
   outc('\r');
   outc('\n');
@@ -772,7 +772,7 @@ int FS_truncate(int chn) /*{{{*/
   if ((fd=file[chn]->outfd)==-1)
   if ((fd=file[chn]->randomfd)==-1)
   if ((fd=file[chn]->binaryfd)==-1) assert(0);
-  if ((o=lseek(fd,SEEK_CUR,0))==(off_t)-1 || ftruncate(fd,o+1)==-1)
+  if ((o=lseek(fd,0,SEEK_CUR))==(off_t)-1 || ftruncate(fd,o+1)==-1)
   {
     FS_errmsg=strerror(errno);
     return -1;
@@ -840,11 +840,11 @@ int FS_putChar(int dev, char ch) /*{{{*/
   if (f->outSize+2>=f->outCapacity && FS_flush(dev)==-1) return -1;
   if (f->outLineWidth && f->outPos==f->outLineWidth)
   {
-    if (FS_istty(dev)) carriage_return(dev);
+    if (FS_istty(dev)) crlf(dev);
     else f->outBuf[f->outSize++]='\n';
     f->outPos=0;
   }
-  if (FS_istty(dev) && ch=='\n') carriage_return(dev);
+  if (FS_istty(dev) && ch=='\n') crlf(dev);
   else f->outBuf[f->outSize++]=ch;
   if (ch!='\n' && ch!='\b') ++f->outPos;
   FS_errmsg=(const char*)0;
@@ -872,7 +872,7 @@ int FS_putItem(int dev, const struct String *s) /*{{{*/
 
   if (opened(dev,0)==-1) return -1;
   f=file[dev];
-  if (f->outPos && f->outPos+s->length>f->outLineWidth) FS_nextline(dev);
+  if (f->outPos && f->outLineWidth && f->outPos+s->length>f->outLineWidth) FS_nextline(dev);
   return FS_putString(dev, s);
 }
 /*}}}*/
@@ -1267,7 +1267,7 @@ int FS_seek(int chn, long int record) /*{{{*/
   return -1;
 }
 /*}}}*/
-int FS_appendToString(int chn, struct String *s, int onl) /*{{{*/
+int FS_appendToString(int chn, struct String *s, int output_nl) /*{{{*/
 {
   size_t new;
   char *n;
@@ -1276,7 +1276,7 @@ int FS_appendToString(int chn, struct String *s, int onl) /*{{{*/
 
   if (f->tty && f->inSize==f->inCapacity)
   {
-    if (edit(chn,onl)==-1) return (FS_errmsg ? -1 : 0);
+    if (edit(chn,output_nl)==-1) return (FS_errmsg ? -1 : 0);
   }
   do
   {

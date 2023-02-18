@@ -11,6 +11,7 @@ cat >test.bas <<eof
 60 print fix(2.3)
 70 print fp(-2.3)
 80 print fp(2.3)
+90 print -2^-3.5
 eof
 
 cat >test.ref <<eof
@@ -22,6 +23,7 @@ cat >test.ref <<eof
  2 
 -0.3 
  0.3 
+-0.088388 
 eof
 
 sh ./test/runbas test.bas >test.data

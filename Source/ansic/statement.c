@@ -654,6 +654,7 @@ struct Value *stmt_EDIT(struct Value *value) /*{{{*/
       { "jmacs", "+%ld " },
       { "joe", "+%ld " },
       { "modeori", "-l%ld " },
+      { "nano", "+%ld " },
       { "origami", "-l%ld " },
       { "vi", "-c%ld " }, 
       { "vim", "+%ld " },
@@ -1074,6 +1075,54 @@ struct Value *stmt_FIELD(struct Value *value) /*{{{*/
     if (pc.token->type==T_COMMA) ++pc.token;
     else break;
   }
+  return (struct Value*)0;
+}
+/*}}}*/
+struct Value *stmt_FILES(struct Value *value) /*{{{*/
+{
+  struct Pc curpc;
+  pid_t pid;
+  int status;
+
+  ++pc.token;
+  curpc=pc;
+  if (eval(value,_("file specification"))->type==V_ERROR || Value_retype(value,V_STRING)->type==V_ERROR)
+  {
+    Value_destroy(value);
+    Value_new_STRING(value);
+    pc=curpc;
+  }
+  if (pass==INTERPRET)
+  {
+    String_quote(&value->u.string);
+    String_insertChar(&value->u.string, 0, 'l');
+    String_insertChar(&value->u.string, 1, 's');
+    String_insertChar(&value->u.string, 2, ' ');
+    String_insertChar(&value->u.string, 3, '-');
+    String_insertChar(&value->u.string, 4, 'l');
+    String_insertChar(&value->u.string, 5, ' ');
+    FS_shellmode(STDCHANNEL);
+    switch (pid=fork())
+    {
+      case -1:
+      {
+        FS_fsmode(STDCHANNEL);
+        Value_destroy(value);
+        return Value_new_ERROR(value,FORKFAILED,strerror(errno));
+      }
+      case 0:
+      {
+        execl("/bin/sh","sh","-c",value->u.string.character,(const char*)0);
+        exit(127);
+      }
+      default:
+      {
+        while (waitpid(pid,&status,0)==-1 && errno!=EINTR);
+      }
+    }
+    FS_fsmode(STDCHANNEL);
+  }
+  Value_destroy(value);
   return (struct Value*)0;
 }
 /*}}}*/
@@ -1732,6 +1781,8 @@ struct Value *stmt_IF_ELSEIFIF(struct Value *value) /*{{{*/
     return Value_new_ERROR(value,MISSINGTHEN);
   }
   ++pc.token;
+  /* Needed to handle multi line if then with hanging comment right. */
+  if (pc.token->type==T_QUOTE || pc.token->type==T_REM) ++pc.token;
   if (pass==INTERPRET)
   {
     if (Value_isNull(value)) pc=ifpc.token->u.elsepc;
@@ -2051,7 +2102,7 @@ struct Value *stmt_MAT(struct Value *value) /*{{{*/
     if (pass==INTERPRET)
     {
       unsigned int i;
-      int unused=1-var1->base;
+      unsigned int unused=1-var1->base;
 
       if ((var1->dim!=1 && var1->dim!=2) || var1->base<0 || var1->base>1) return Value_new_ERROR(value,NOMATRIX,var1->dim,var1->base);
       if (var1->dim==1)
@@ -2074,7 +2125,7 @@ struct Value *stmt_MAT(struct Value *value) /*{{{*/
       }
       else
       {
-        int j;
+        unsigned int j;
 
         for (i=unused; i<var1->geometry[0]; ++i) for (j=unused; j<var1->geometry[1]; ++j)
         {
@@ -2176,59 +2227,68 @@ struct Value *stmt_MATINPUT(struct Value *value) /*{{{*/
     {
       unsigned int i,j;
       int unused=1-var->base;
+      unsigned int columns;
+      struct Token *inputdata,*t;
 
       if (var->dim!=1 && var->dim!=2) return Value_new_ERROR(value,NOMATRIX,var->dim);
-      for (i=unused; i<var->geometry[0]; ++i)
+      columns=var->dim==1 ? 0 : var->geometry[1];
+      inputdata=t=(struct Token*)0;
+      for (i=unused,j=unused; i<var->geometry[0]; )
       {
         struct String s;
-        struct Token *t,*inputdata;
 
-        if (channel==STDCHANNEL)
+        if (!inputdata)
         {
-          FS_putChars(STDCHANNEL,"? ");
-          FS_flush(STDCHANNEL);
+          if (channel==STDCHANNEL)
+          {
+            FS_putChars(STDCHANNEL,"? ");
+            FS_flush(STDCHANNEL);
+          }
+          String_new(&s);
+          if (FS_appendToString(channel,&s,1)==-1) return Value_new_ERROR(value,IOERROR,FS_errmsg);
+          if (s.length==0) return Value_new_ERROR(value,IOERROR,_("end of file"));
+          inputdata=t=Token_newData(s.character);
+          String_destroy(&s);
         }
-        String_new(&s);
-        if (FS_appendToString(channel,&s,1)==-1) return Value_new_ERROR(value,IOERROR,FS_errmsg);
-        if (s.length==0) return Value_new_ERROR(value,IOERROR,_("end of file"));
-        inputdata=t=Token_newData(s.character);
-        String_destroy(&s);
-        if (var->dim==1)
+
+        if (t->type==T_COMMA)
         {
-          if (t->type==T_COMMA || t->type==T_EOL)
+          Value_destroy(&(var->value[j*columns+i]));
+          Value_new_null(&(var->value[j*columns+i]),var->type);
+          ++t;
+        }
+        else if (t->type==T_EOL)
+        {
+          while (i<var->geometry[0])
           {
-            Value_destroy(&(var->value[i]));
-            Value_new_null(&(var->value[i]),var->type);
+            Value_destroy(&(var->value[j*columns+i]));
+            Value_new_null(&(var->value[j*columns+i]),var->type);
+            ++i;
           }
-          else if (convert(value,&(var->value[i]),t))
-          {
-            Token_destroy(inputdata);
-            pc=lvaluepc;
-            return value;
-          }
-          else ++t;
-          if (t->type==T_COMMA) ++t;
+        }
+        else if (convert(value,&(var->value[j*columns+i]),t))
+        {
+          Token_destroy(inputdata);
+          pc=lvaluepc;
+          return value;
         }
         else
         {
-          for (j=unused; j<var->geometry[1]; ++j)
+          ++t;
+          ++i;
+          if (t->type==T_COMMA) ++t;
+        }
+
+        if (i==var->geometry[0] && j<(columns-1))
+        {
+          i=unused;
+          ++j;
+          if (t->type==T_EOL)
           {
-            if (t->type==T_COMMA || t->type==T_EOL)
-            {
-              Value_destroy(&(var->value[i*var->geometry[1]+j]));
-              Value_new_null(&(var->value[i*var->geometry[1]+j]),var->type);
-            }
-            else if (convert(value,&(var->value[i*var->geometry[1]+j]),t))
-            {
-              Token_destroy(inputdata);
-              pc=lvaluepc;
-              return value;
-            }
-            else ++t;
-            if (t->type==T_COMMA) ++t;
+            Token_destroy(inputdata);
+            inputdata=(struct Token*)0;
           }
         }
-        Token_destroy(inputdata);
       }
     }
     if (pc.token->type==T_COMMA) ++pc.token;
@@ -2314,8 +2374,8 @@ struct Value *stmt_MATPRINT(struct Value *value) /*{{{*/
     if (pass==INTERPRET)
     {
       unsigned int i,j;
-      int unused=1-var->base;
-      int g0,g1;
+      unsigned int unused=1-var->base;
+      unsigned int g0,g1;
 
       if ((var->dim!=1 && var->dim!=2) || var->base<0 || var->base>1) return Value_new_ERROR(value,NOMATRIX,var->dim,var->base);
       if ((notfirst ? FS_putChar(chn,'\n') : FS_nextline(chn))==-1)
@@ -2412,7 +2472,7 @@ struct Value *stmt_MATREAD(struct Value *value) /*{{{*/
       }
       else
       {
-        int j;
+        unsigned int j;
 
         for (i=unused; i<var->geometry[0]; ++i) for (j=unused; j<var->geometry[1]; ++j)
         {
@@ -2490,8 +2550,8 @@ struct Value *stmt_MATWRITE(struct Value *value) /*{{{*/
     if (pass==INTERPRET)
     {
       unsigned int i,j;
-      int unused=1-var->base;
-      int g0,g1;
+      unsigned int unused=1-var->base;
+      unsigned int g0,g1;
 
       if ((var->dim!=1 && var->dim!=2) || var->base<0 || var->base>1) return Value_new_ERROR(value,NOMATRIX,var->dim,var->base);
       g0=var->geometry[0];

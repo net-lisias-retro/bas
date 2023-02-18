@@ -7,7 +7,7 @@ for x=1 to 3
   if x=1 then
     print "1a"
   else
-    if x=2 then
+    if x=2 then rem multi line if with trailing comment
       print "2a"
     else
       print "3a"

@@ -28,9 +28,6 @@
 /* Define as 1 if you use dmalloc. */
 #undef USE_DMALLOC
 
-/* Define as 1 if you want LR0 parser. */
-#undef USE_LR0
-
 /* Define either for large file support, if your OS needs them. */
 #undef _FILE_OFFSET_BITS
 #undef _LARGE_FILES

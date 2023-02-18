@@ -52,7 +52,8 @@
 #define NESTEDDEFINITION   STATIC+37, _("Nested definition")
 #define NOPROGRAM          STATIC+38, _("No program")
 #define NOSUCHDATALINE     STATIC+39, _("No such `data' line")
-#define NOSUCHLINE         STATIC+40, _("No such line")
+#define NOSUCHLINE_MSG     _("No such line")
+#define NOSUCHLINE         STATIC+40, NOSUCHLINE_MSG
 #define REDECLARATION      STATIC+41, _("Redeclaration as different kind of symbol")
 #define STRAYCASE          STATIC+42, _("`case' without `select case'")
 #define STRAYDO            STATIC+43, _("`do' without `loop'")

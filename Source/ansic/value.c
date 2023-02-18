@@ -189,7 +189,7 @@ struct Value *Value_new_ERROR(struct Value *this, int code, const char *error, .
   return this;
 }
 /*}}}*/
-struct Value *Value_new_INTEGER(struct Value *this, int n) /*{{{*/
+struct Value *Value_new_INTEGER(struct Value *this, long n) /*{{{*/
 {
   assert(this!=(struct Value*)0);
   this->type=V_INTEGER;

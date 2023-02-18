@@ -90,7 +90,7 @@ distclean:	clean
 #}}}
 #{{{ tar
 tar:		bas.pdf distclean
-		(b=`pwd`; b=`basename $$b`; cd ..; tar zcvf $$b.tar.gz $$b/COPYING $$b/INSTALL $$b/Makefile.in $$b/README $$b/NEWS $$b/configure $$b/install-sh $$b/test $$b/[a-z]*.*)
+		(b=`pwd`; b=`basename $$b`; cd ..; tar zcvf $$b.tar.gz $$b/LICENSE $$b/INSTALL $$b/Makefile.in $$b/README $$b/NEWS $$b/configure $$b/install-sh $$b/test $$b/[a-z]*.*)
 #}}}
 #{{{ dependencies
 auto.o:	auto.c config.h auto.h programtypes.h var.h value.h str.h token.h autotypes.h program.h

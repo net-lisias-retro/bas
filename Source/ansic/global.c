@@ -406,6 +406,16 @@ static struct Value *fn_commandd(struct Value *v, struct Auto *stack) /*{{{*/
   return v;
 }
 /*}}}*/
+static struct Value *fn_cvd(struct Value *v, struct Auto *stack) /*{{{*/
+{
+  struct String *s=stringValue(stack,0);
+  double n;
+
+  if (s->length!=sizeof(double)) return Value_new_ERROR(v,BADCONVERSION,_("number"));
+  memcpy(&n,s->character,sizeof(double));
+  return Value_new_REAL(v,n);
+}
+/*}}}*/
 static struct Value *fn_cvi(struct Value *v, struct Auto *stack) /*{{{*/
 {
   struct String *s=stringValue(stack,0);
@@ -424,16 +434,6 @@ static struct Value *fn_cvs(struct Value *v, struct Auto *stack) /*{{{*/
   if (s->length!=sizeof(float)) return Value_new_ERROR(v,BADCONVERSION,_("number"));
   memcpy(&n,s->character,sizeof(float));
   return Value_new_REAL(v,(double)n);
-}
-/*}}}*/
-static struct Value *fn_cvd(struct Value *v, struct Auto *stack) /*{{{*/
-{
-  struct String *s=stringValue(stack,0);
-  double n;
-
-  if (s->length!=sizeof(double)) return Value_new_ERROR(v,BADCONVERSION,_("number"));
-  memcpy(&n,s->character,sizeof(double));
-  return Value_new_REAL(v,n);
 }
 /*}}}*/
 static struct Value *fn_date(struct Value *v, struct Auto *stack) /*{{{*/
@@ -1475,9 +1475,9 @@ struct Global *Global_new(struct Global *this) /*{{{*/
   builtin(this,"command$",V_STRING, fn_commandi,  1,V_INTEGER);
   builtin(this,"command$",V_STRING, fn_commandd,  1,V_REAL);
   builtin(this,"cos",     V_REAL,   fn_cos,       1,V_REAL);
+  builtin(this,"cvd",     V_REAL,   fn_cvd,       1,V_STRING);
   builtin(this,"cvi",     V_INTEGER,fn_cvi,       1,V_STRING);
   builtin(this,"cvs",     V_REAL,   fn_cvs,       1,V_STRING);
-  builtin(this,"cvd",     V_REAL,   fn_cvd,       1,V_STRING);
   builtin(this,"date$",   V_STRING, fn_date,      0);
   builtin(this,"dec$",    V_STRING, fn_dec,       2,V_REAL,V_STRING);
   builtin(this,"dec$",    V_STRING, fn_dec,       2,V_INTEGER,V_STRING);

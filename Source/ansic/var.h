@@ -10,7 +10,7 @@ struct Var
   struct Value *value;
   unsigned int size;
   enum ValueType type;
-  char base;
+  long int base;
 };
 
 #define VAR_SCALAR_VALUE(this) ((this)->value)

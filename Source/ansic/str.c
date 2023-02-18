@@ -169,7 +169,7 @@ int String_insertChar(struct String *this, size_t where, char ch) /*{{{*/
   size_t oldlength=this->length;
 
   if (this->field) String_leaveField(this);
-  assert(where<oldlength);
+  assert(where<=oldlength);
   if (String_size(this,this->length+1)==-1) return -1;
   memmove(this->character+where+1,this->character+where,oldlength-where);
   this->character[where]=ch;
@@ -213,6 +213,24 @@ int String_cmp(const struct String *this, const struct String *s) /*{{{*/
     if ((res=(*thisch-*sch))) return res;
   }
   return (this->length-s->length);
+}
+/*}}}*/
+int String_quote(struct String *this) /*{{{*/
+{
+  size_t i;
+
+  for (i=0; i<this->length; ++i)
+  {
+    int ch;
+
+    ch=this->character[i];
+    if (!isalpha(ch) && !isdigit(ch) && ch!='*' && ch!='?' && ch!='[' && ch!=']')
+    {
+      if (String_insertChar(this, i, '\\')==-1) return -1;
+      ++i;
+    }
+  }
+  return 0;
 }
 /*}}}*/
 void String_lset(struct String *this, const struct String *s) /*{{{*/

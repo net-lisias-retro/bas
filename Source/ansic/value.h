@@ -57,7 +57,7 @@ extern double Value_vald(const char *s, char **end, int *overflow);
 
 extern struct Value *Value_new_NIL(struct Value *this);
 extern struct Value *Value_new_ERROR(struct Value *this, int code, const char *error, ...);
-extern struct Value *Value_new_INTEGER(struct Value *this, int n);
+extern struct Value *Value_new_INTEGER(struct Value *this, long n);
 extern struct Value *Value_new_REAL(struct Value *this, double n);
 extern struct Value *Value_new_STRING(struct Value *this);
 extern struct Value *Value_new_VOID(struct Value *this);

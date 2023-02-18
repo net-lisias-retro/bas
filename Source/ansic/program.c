@@ -428,7 +428,11 @@ void Program_renum(struct Program *this, int first, int inc) /*{{{*/
   {
     for (token=this->code[i]; token->type!=T_EOL; )
     {
-      if (token->type==T_GOTO || token->type==T_GOSUB || token->type==T_RESTORE || token->type==T_RESUME || token->type==T_USING)
+      if (token->type==T_GOTO
+          || token->type==T_GOSUB
+          || token->type==T_RESTORE
+          || token->type==T_RESUME
+          || token->type==T_USING)
       {
         ++token;
         while (token->type==T_INTEGER)
@@ -465,9 +469,13 @@ void Program_unnum(struct Program *this) /*{{{*/
   memset(ref,0,this->size);
   for (i=0; i<this->size; ++i)
   {
-    for (token=this->code[i]; token->type!=T_EOL; ++token)
+    for (token=this->code[i]; token->type!=T_EOL; )
     {
-      if (token->type==T_GOTO || token->type==T_GOSUB || token->type==T_RESTORE || token->type==T_RESUME)
+      if (token->type==T_GOTO
+          || token->type==T_GOSUB
+          || token->type==T_RESTORE
+          || token->type==T_RESUME
+          || token->type==T_USING)
       {
         ++token;
         while (token->type==T_INTEGER)
@@ -480,6 +488,7 @@ void Program_unnum(struct Program *this) /*{{{*/
           else break;
         }
       }
+      else ++token;
     }
   }
   for (i=0; i<this->size; ++i)
@@ -603,7 +612,7 @@ static void Xref_print(struct Xref *root, void (*print)(const void *key, struct 
 /*}}}*/
 static int cmpLine(const void *a, const void *b) /*{{{*/
 {
-  const register struct Pc *pcA=(const struct Pc*)a,*pcB=(const struct Pc*)b;
+  register const struct Pc *pcA=(const struct Pc*)a,*pcB=(const struct Pc*)b;
 
   return pcA->line-pcB->line;
 }
@@ -618,7 +627,7 @@ static void printLine(const void *k, struct Program *p, int chn) /*{{{*/
 /*}}}*/
 static int cmpName(const void *a, const void *b) /*{{{*/
 {
-  const register char *funcA=(const char*)a,*funcB=(const char*)b;
+  register const char *funcA=(const char*)a,*funcB=(const char*)b;
 
   return strcmp(funcA,funcB);
 }
