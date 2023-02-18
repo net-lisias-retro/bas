@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bas 1.2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-10-12 17:08+0200\n"
+"POT-Creation-Date: 2023-02-18 01:12-0300\n"
 "PO-Revision-Date: 2002-11-09 18:26+0100\n"
 "Last-Translator: Michael Haardt <michael@moria.de>\n"
 "Language-Team: Deutsch <michael@moria.de>\n"
@@ -125,11 +125,11 @@ msgstr "' nicht möglich ("
 msgid ").\n"
 msgstr ").\n"
 
-#: bas.c:1242
+#: bas.c:1243
 msgid "This is free software with ABSOLUTELY NO WARRANTY.\n"
 msgstr "Dies ist freie Software ohne JEGLICHE GEWÄHRLEISTUNG.\n"
 
-#: bas.c:1260
+#: bas.c:1261
 msgid ""
 "\n"
 "Break\n"
@@ -137,15 +137,15 @@ msgstr ""
 "\n"
 "Abbruch\n"
 
-#: bas.c:1298 error.h:96
+#: bas.c:1299 error.h:96
 msgid "Use `renum' to number program first"
 msgstr "Benutzen sie `renum' um das Programm erst zu nummerieren"
 
-#: bas.c:1308
+#: bas.c:1309
 msgid "END program\n"
 msgstr "END benutzt\n"
 
-#: bas.c:1314
+#: bas.c:1315
 msgid "Invalid line\n"
 msgstr "Ungültige Zeile\n"
 

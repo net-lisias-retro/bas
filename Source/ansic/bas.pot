@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-10-12 17:08+0200\n"
+"POT-Creation-Date: 2023-02-18 01:12-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -131,25 +131,25 @@ msgstr ""
 msgid ").\n"
 msgstr ""
 
-#: bas.c:1242
+#: bas.c:1243
 msgid "This is free software with ABSOLUTELY NO WARRANTY.\n"
 msgstr ""
 
-#: bas.c:1260
+#: bas.c:1261
 msgid ""
 "\n"
 "Break\n"
 msgstr ""
 
-#: bas.c:1298 error.h:96
+#: bas.c:1299 error.h:96
 msgid "Use `renum' to number program first"
 msgstr ""
 
-#: bas.c:1308
+#: bas.c:1309
 msgid "END program\n"
 msgstr ""
 
-#: bas.c:1314
+#: bas.c:1315
 msgid "Invalid line\n"
 msgstr ""
 

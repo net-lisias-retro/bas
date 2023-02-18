@@ -4851,7 +4851,7 @@ printf "%s\n" "#define VERSION \"$VERSION\"" >>confdefs.h
 
 
 
-ac_config_files="$ac_config_files Makefile bas.1 test/runbas"
+ac_config_files="$ac_config_files Makefile bas.1 ../../Tests/runbas"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5541,7 +5541,7 @@ do
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "bas.1") CONFIG_FILES="$CONFIG_FILES bas.1" ;;
-    "test/runbas") CONFIG_FILES="$CONFIG_FILES test/runbas" ;;
+    "test/runbas") CONFIG_FILES="$CONFIG_FILES ../../Tests/runbas" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -6128,5 +6128,4 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
-chmod 755 test/runbas
-
+chmod 755 ../../Tests/runbas

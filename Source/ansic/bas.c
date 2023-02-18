@@ -1237,8 +1237,9 @@ void bas_interpreter(void) /*{{{*/
 {
   if (FS_istty(STDCHANNEL))
   {
-    FS_putChars(STDCHANNEL,"bas " VERSION "\n");
-    FS_putChars(STDCHANNEL,"Copyright 1999-2019 Michael Haardt.\n");
+    FS_putChars(STDCHANNEL,"bas " VERSION " /L\n");
+    FS_putChars(STDCHANNEL,"© 1999-2022 Michael Haardt.\n");
+    FS_putChars(STDCHANNEL,"© 2023 LisiasT (with customizations).\n");
     FS_putChars(STDCHANNEL,_("This is free software with ABSOLUTELY NO WARRANTY.\n"));
   }
   new();

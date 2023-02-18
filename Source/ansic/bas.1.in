@@ -1221,8 +1221,8 @@ thus not compatible with this implementation.
 .SH NOTES \"{{{
 \fBbas\fP is meant to get old code running again. If you always missed a
 programming language as easy as BASIC used to be back then, then advance
-and learn Ruby instead. It brings back the same ease, fun and magic of
-programming, but it is wonderful where BASIC is weird.
+and learn Python instead. It brings back the same ease, fun and magic of
+programming, but with modern syntax and powerful libraries.
 \"}}}
 .SH "SEE ALSO" \"{{{
 The Usenet group comp.lang.basic.misc discusses the classic BASIC dialect.

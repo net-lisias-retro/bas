@@ -20,3 +20,15 @@ editfl.bas
 *.rej
 *~
 >>>>>>> parallel/ChipMaster/master
+config.status
+bas
+bas.1
+config.h
+config.log
+de.mo
+Source/ansic/libbas.a
+Source/ansic/Makefile
+Source/ansic/test60
+Source/ansic/token.c
+Source/ansic/autom4te.cache
+runbas

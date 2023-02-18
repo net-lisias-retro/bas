@@ -33,6 +33,8 @@ The simplest way to compile this package is:
 
      Running `configure' takes awhile.  While running, it prints some
      messages telling which features it is checking for.
+     
+     Then yuo need to run `autoconf config.h.in` .
 
   2. Type `make' to compile the package.
 

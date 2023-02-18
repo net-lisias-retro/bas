@@ -47,7 +47,7 @@ install-po-yes:	$(CATALOGS)
 		done
 
 check:		bas test60
-		for i in test/test*; do ./$$i || exit; done
+		for i in ../../Tests/test*; do ./$$i || exit; done
 
 install:	all
 		@INSTALL@ -m 755 -d @bindir@
@@ -89,7 +89,7 @@ clean:
 #}}}
 #{{{ distclean
 distclean:	clean
-		rm -rf autom4te.cache bas test60 config.cache config.h config.log config.status configure.lineno Makefile bas.1 test/runbas
+		rm -rf autom4te.cache bas test60 config.cache config.h config.log config.status configure.lineno Makefile bas.1 ../../Tests/runbas
 #}}}
 #{{{ tar
 tar:		bas.pdf distclean

@@ -21,3 +21,8 @@ o  ON ERROR no longer catches terminal interrupt
 o  A relative program file name is converted to an absolute pathname
    for SAVE without arguments saving it back to the original file.
 o  FNEND explained in manual
+
+
+Changes compared to last official release
+
+o rebranding to "/L"

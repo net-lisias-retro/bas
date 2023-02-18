@@ -161,6 +161,6 @@ AC_DEFINE_UNQUOTED(VERSION,"$VERSION")
 AC_SUBST(VERSION)
 AC_SUBST(UPDATED)
 AC_SUBST(USE_NLS)
-AC_CONFIG_FILES(Makefile bas.1 test/runbas)
+AC_CONFIG_FILES(Makefile bas.1 ../../Tests/runbas)
 AC_OUTPUT
 chmod 755 test/runbas
