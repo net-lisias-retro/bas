@@ -1,0 +1,35 @@
+#!/bin/sh
+
+echo -n $0: 'DEC of LOCAL variables... '
+
+cat >test.bas <<eof
+ 10 def proca(a)
+ 20   local b
+ 30   b=1
+ 40   print b
+ 50   dec b
+ 60   print b
+ 70 end proc
+ 80 b=3
+ 90 print b
+100 proca(b)
+110 print b
+eof
+
+cat >test.ref <<eof
+ 3 
+ 1 
+ 0 
+ 3 
+eof
+
+sh ./test/runbas test.bas >test.data
+
+if cmp test.ref test.data
+then
+  rm -f test.*
+  echo passed
+else
+  echo failed
+  exit 1
+fi

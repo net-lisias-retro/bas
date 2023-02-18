@@ -96,7 +96,8 @@ int String_size(struct String *this, size_t length) /*{{{*/
 {
   char *n;
 
-  assert(this!=(struct String*)0);
+  assert(this);
+  assert(!(length & ~((size_t)-1 >> 1))); /* A set highest bit is likely a problem. */
   if (this->field) String_leaveField(this);
   if (length)
   {
@@ -156,7 +157,8 @@ int String_appendPrintf(struct String *this, const char *fmt, ...) /*{{{*/
 
   if (this->field) String_leaveField(this);
   va_start(ap, fmt);
-  l=vsprintf(buf,fmt,ap);
+  l=vsnprintf(buf,sizeof(buf),fmt,ap);
+  assert(l<=sizeof(buf));
   va_end(ap);
   j=this->length;
   if (String_size(this,j+l)==-1) return -1;
@@ -256,6 +258,7 @@ void String_set(struct String *this, size_t pos, const struct String *s, size_t 
   if (this->length>=pos)
   {
     if (this->length<(pos+length)) length=this->length-pos;
+    if (length>s->length) length = s->length;
     if (length) memcpy(this->character+pos,s->character,length);
   }
 }

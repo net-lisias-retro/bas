@@ -23,6 +23,7 @@
 
 static int matchdata;
 static int backslash_colon;
+static int do_repeat;
 static int uppercase;
 int yylex(void);
 static struct Token *cur;
@@ -370,6 +371,14 @@ SELECTCASE	select[ \t]+case
                           return T_DISPLAY;
                         }
 "do"			{
+                          if (do_repeat)
+                          {
+                            if (cur)
+                            {
+                              cur->statement=stmt_REPEAT;
+                            }
+                            return T_REPEAT;
+                          }
                           if (cur)
                           {
                             cur->statement=stmt_DO;
@@ -544,6 +553,9 @@ end[ \t]+function	{
                           if (cur)
                           {
                             cur->statement=stmt_FOR;
+                  	    cur->u.fr=malloc(sizeof(struct For));
+                  	    Value_new_NIL(&cur->u.fr->to);
+                  	    Value_new_NIL(&cur->u.fr->step);
                           }
                           return T_FOR;
                         }
@@ -802,7 +814,7 @@ end[ \t]+function	{
                   	  if (cur)
                   	  {
                             cur->statement=stmt_NEXT;
-                  	    cur->u.next=malloc(sizeof(struct Next));
+                  	    cur->u.fr=malloc(sizeof(struct Pc));
                   	  }
 			  return T_NEXT;
                 	}
@@ -873,14 +885,14 @@ end[ \t]+function	{
                           }
                           return T_OUT;
                         }
-"print"|"p."|"?"	{
+"print"|"p."|"pr"|"?"	{
                           if (cur)
                           {
                             cur->statement=stmt_PRINT_LPRINT;
                           }
                           return T_PRINT;
                         }
-("print"|"p."|"?")/"#"	{
+("print"|"p."|"pr"|"?")/"#"	{
                           if (cur)
                           {
                             cur->statement=stmt_PRINT_LPRINT;
@@ -1002,7 +1014,7 @@ end[ \t]+function	{
                           return T_SLEEP;
                         }
 "spc"			return T_SPC;
-"step"          	return T_STEP;
+"step"			return T_STEP;
 "stop"          	{
                           if (cur)
                           {
@@ -1385,7 +1397,13 @@ void Token_destroy(struct Token *token) /*{{{*/
       case T_FNEND:             break;
       case T_FNEXIT:            break;
       case T_FNRETURN:          break;
-      case T_FOR:               break;
+      case T_FOR:
+      {
+        Value_destroy(&r->u.fr->to);
+        Value_destroy(&r->u.fr->step);
+        free(r->u.fr);
+        break;
+      }
       case T_FOR_INPUT:         break;
       case T_FOR_OUTPUT:        break;
       case T_FOR_APPEND:        break;
@@ -1441,7 +1459,7 @@ void Token_destroy(struct Token *token) /*{{{*/
       case T_NAME:              break;
       case T_NE:                break;
       case T_NEW:               break;
-      case T_NEXT:              free(r->u.next); break;
+      case T_NEXT:              free(r->u.forpc); break;
       case T_NOT:               break;
       case T_ON:                if (r->u.on.pc) free(r->u.on.pc); break;
       case T_ONERROR:           break;
@@ -1922,12 +1940,13 @@ struct String *Token_toString(struct Token *token, struct Token *spaceto, struct
   return s;
 }
 /*}}}*/
-void Token_init(int b_c, int uc) /*{{{*/
+void Token_init(int b_c, int d_c, int uc) /*{{{*/
 {
 #define PROPERTY(t,assoc,unary_priority,binary_priority,is_unary,is_binary) \
   Token_property[t]=(assoc<<8)|(unary_priority<<5)|(binary_priority<<2)|(is_unary<<1)|is_binary
 
   backslash_colon=b_c;
+  do_repeat=d_c;
   uppercase=uc;
   PROPERTY(T_POW,  1,0,7,0,1);
   PROPERTY(T_MULT, 0,0,5,0,1);

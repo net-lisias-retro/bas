@@ -36,6 +36,7 @@ struct Program *Program_new(struct Program *this) /*{{{*/
   this->code=(struct Token**)0;
   this->scope=(struct Scope*)0;
   String_new(&this->name);
+  String_new(&this->shebang);
   return this;
 }
 /*}}}*/
@@ -46,6 +47,7 @@ void Program_destroy(struct Program *this) /*{{{*/
   this->code=(struct Token**)0;
   this->scope=(struct Scope*)0;
   String_destroy(&this->name);
+  String_destroy(&this->shebang);
 }
 /*}}}*/
 void Program_norun(struct Program *this) /*{{{*/
@@ -323,7 +325,15 @@ struct Value *Program_merge(struct Program *this, int dev, struct Value *value) 
     struct Token *line;
 
     ++l;
-    if (l!=1 || s.character[0]!='#') 
+    if (l==1 && s.character[0]=='#')
+    {
+      if (this->size==0)
+      {
+        if (this->shebang.length) String_destroy(&this->shebang);
+        String_clone(&this->shebang,&s);
+      }
+    }
+    else
     {
       line=Token_newCode(s.character);
       if (line->type==T_INTEGER && line->u.integer>0) Program_store(this,line,this->numbered?line->u.integer:0);
@@ -360,6 +370,7 @@ struct Value *Program_list(struct Program *this, int dev, int watchIntr, struct 
   int indent=0;
   struct String s;
 
+  if (!FS_istty(dev) && FS_putString(dev,&this->shebang)==-1) return Value_new_ERROR(value,IOERROR,FS_errmsg);
   w=Program_lineNumberWidth(this);
   for (i=0; i<this->size; ++i)
   {
@@ -508,7 +519,16 @@ void Program_unnum(struct Program *this) /*{{{*/
 int Program_setname(struct Program *this, const char *filename) /*{{{*/
 {
   if (this->name.length) String_delete(&this->name,0,this->name.length);
-  if (filename) return String_appendChars(&this->name,filename);
+  if (filename)
+  {
+    if (String_appendChars(&this->name,filename)==-1) return -1;
+
+    /* If the name is not converted to an absolute path, it would be
+     * saved in the wrong location if SAVE without arguments is used
+     * after running a program that changed the current directory.
+     */
+    return FS_absolute(&this->name);
+  }
   else return 0;
 }
 /*}}}*/

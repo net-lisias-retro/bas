@@ -17,6 +17,7 @@
 #include <limits.h>
 #include <math.h>
 #include <string.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -52,9 +53,6 @@ enum LabelType
   L_DO,
   L_DOcondition,
   L_FOR,
-  L_FOR_VAR,
-  L_FOR_LIMIT,
-  L_FOR_BODY,
   L_REPEAT,
   L_SELECTCASE,
   L_WHILE,
@@ -233,6 +231,22 @@ static struct Value *lvalue(struct Value *value) /*{{{*/
   }
 }
 /*}}}*/
+static struct Value *declare_lvalue(struct Value *value) /*{{{*/
+{
+  if (pass==DECLARE)
+  {
+    if
+    (
+      ((pc.token+1)->type==T_OP || Auto_find(&stack,pc.token->u.identifier)==0)
+      && Global_variable(&globals,pc.token->u.identifier,pc.token->u.identifier->defaultType,(pc.token+1)->type==T_OP?GLOBALARRAY:GLOBALVAR,0)==0
+    )
+    {
+      return Value_new_ERROR(value,REDECLARATION);
+    }
+  }
+  return lvalue(value);
+}
+/*}}}*/
 static struct Value *func(struct Value *value) /*{{{*/
 {
   struct Identifier *ident;
@@ -404,12 +418,12 @@ static struct Value *func(struct Value *value) /*{{{*/
               Auto_setError(&stack,Program_lineNumber(&program,&pc),&pc,value);
               Program_PCtoError(&program,&pc,value);
             }
-            if (stack.onerror.line!=-1)
+            if (!FS_intr && stack.onerror.line!=-1)
             {
               stack.resumeable=1;
               pc=stack.onerror;
             }
-            else
+            else /* No ON ERROR or terminal interrupt */
             {
               Auto_frameToError(&stack,&program,value);
               break;
@@ -715,12 +729,7 @@ static void labelStackError(struct Value *v) /*{{{*/
     case L_DO: Value_new_ERROR(v,STRAYDO); break;
     case L_DOcondition: Value_new_ERROR(v,STRAYDOcondition); break;
     case L_ELSE: Value_new_ERROR(v,STRAYELSE2); break;
-    case L_FOR_BODY:
-    {
-      Value_new_ERROR(v,STRAYFOR);
-      pc=*findLabel(L_FOR);
-      break;
-    }
+    case L_FOR: Value_new_ERROR(v,STRAYFOR); break;
     case L_WHILE: Value_new_ERROR(v,STRAYWHILE); break;
     case L_REPEAT: Value_new_ERROR(v,STRAYREPEAT); break;
     case L_SELECTCASE: Value_new_ERROR(v,STRAYSELECTCASE); break;
@@ -741,7 +750,7 @@ static const char *topLabelDescription(void) /*{{{*/
     case L_DO: return _("`do' loop");
     case L_DOcondition: return _("`do while' or `do until' loop");
     case L_ELSE: return _("`else' branch");
-    case L_FOR_BODY: return _("`for' loop");
+    case L_FOR: return _("`for' loop");
     case L_WHILE: return _("`while' loop");
     case L_REPEAT: return _("`repeat' loop");
     case L_SELECTCASE: return _("`select case' control structure");
@@ -766,18 +775,7 @@ static struct Value *assign(struct Value *value) /*{{{*/
     if (pc.token->type!=T_OP) return Value_new_ERROR(value,MISSINGOP);
     ++pc.token;
     if (pc.token->type!=T_IDENTIFIER) return Value_new_ERROR(value,MISSINGSTRIDENT);
-    if (pass==DECLARE)
-    {
-      if
-      (
-        ((pc.token+1)->type==T_OP || Auto_find(&stack,pc.token->u.identifier)==0)
-        && Global_variable(&globals,pc.token->u.identifier,pc.token->u.identifier->defaultType,(pc.token+1)->type==T_OP?GLOBALARRAY:GLOBALVAR,0)==0
-      )
-      {
-        return Value_new_ERROR(value,REDECLARATION);
-      }
-    }
-    if ((l=lvalue(value))->type==V_ERROR) return value;
+    if ((l=declare_lvalue(value))->type==V_ERROR) return value;
     if (pass==COMPILE && l->type!=V_STRING) return Value_new_ERROR(value,TYPEMISMATCH4);
     if (pc.token->type!=T_COMMA) return Value_new_ERROR(value,MISSINGCOMMA);
     ++pc.token;
@@ -825,19 +823,11 @@ static struct Value *assign(struct Value *value) /*{{{*/
         l=more;
       }
 
-      if (pass==DECLARE)
+      if ((l[used]=declare_lvalue(value))->type==V_ERROR)
       {
-        if
-        (
-          ((pc.token+1)->type==T_OP || Auto_find(&stack,pc.token->u.identifier)==0)
-          && Global_variable(&globals,pc.token->u.identifier,pc.token->u.identifier->defaultType,(pc.token+1)->type==T_OP?GLOBALARRAY:GLOBALVAR,0)==0
-        )
-        {
-          if (capacity) free(l);
-          return Value_new_ERROR(value,REDECLARATION);
-        }
+        if (capacity) free(l);
+        return value;
       }
-      if ((l[used]=lvalue(value))->type==V_ERROR) return value;
       ++used;
       if (pc.token->type==T_COMMA) ++pc.token;
       else break;
@@ -1005,12 +995,12 @@ static void runline(struct Token *line) /*{{{*/
         Auto_setError(&stack,Program_lineNumber(&program,&pc),&pc,&value);
         Program_PCtoError(&program,&pc,&value);
       }
-      if (stack.onerror.line!=-1)
+      if (!FS_intr && stack.onerror.line!=-1)
       {
         stack.resumeable=1;
         pc=stack.onerror;
       }
-      else
+      else /* No ON ERROR or terminal break */
       {
         struct String s;
 
@@ -1174,14 +1164,14 @@ static struct Value *statements(struct Value *value) /*{{{*/
 }
 /*}}}*/
 
-void bas_init(int backslash_colon, int restricted, int uppercase, int lpfd) /*{{{*/
+void bas_init(int backslash_colon, int do_repeat, int restricted, int uppercase, int lpfd) /*{{{*/
 {
 #ifdef HAVE_GETTEXT
   bindtextdomain("bas",LOCALEDIR);
   textdomain("bas");
 #endif
   stack.begindata.line=-1;
-  Token_init(backslash_colon,uppercase);
+  Token_init(backslash_colon,do_repeat,uppercase);
   Global_new(&globals);
   Auto_new(&stack);
   Program_new(&program);
@@ -1223,6 +1213,7 @@ void bas_runFile(const char *runFile) /*{{{*/
     struct Token line[2];
 
     Program_setname(&program,runFile);
+    program.unsaved=0;
     line[0].type=T_RUN;
     line[0].statement=stmt_RUN;
     line[1].type=T_EOL;
@@ -1247,7 +1238,7 @@ void bas_interpreter(void) /*{{{*/
   if (FS_istty(STDCHANNEL))
   {
     FS_putChars(STDCHANNEL,"bas " VERSION "\n");
-    FS_putChars(STDCHANNEL,"Copyright 1999-2014 Michael Haardt.\n");
+    FS_putChars(STDCHANNEL,"Copyright 1999-2019 Michael Haardt.\n");
     FS_putChars(STDCHANNEL,_("This is free software with ABSOLUTELY NO WARRANTY.\n"));
   }
   new();

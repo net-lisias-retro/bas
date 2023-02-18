@@ -871,15 +871,17 @@ int FS_putItem(int dev, const struct String *s) /*{{{*/
   struct FileStream *f;
 
   if (opened(dev,0)==-1) return -1;
+  assert(((int)s->length)>=0);
   f=file[dev];
-  if (f->outPos && f->outLineWidth && f->outPos+s->length>f->outLineWidth) FS_nextline(dev);
+  if (f->outPos && f->outLineWidth && f->outPos+((int)s->length)>f->outLineWidth) FS_nextline(dev);
   return FS_putString(dev, s);
 }
 /*}}}*/
 int FS_putbinaryString(int chn, const struct String *s) /*{{{*/
 {
   if (opened(chn,3)==-1) return -1;
-  if (s->length && write(file[chn]->binaryfd,s->character,s->length)!=s->length)
+  assert(((ssize_t)s->length)>=0);
+  if (s->length && write(file[chn]->binaryfd,s->character,s->length)!=(ssize_t)s->length)
   {
     FS_errmsg=strerror(errno);
     return -1;
@@ -890,7 +892,7 @@ int FS_putbinaryString(int chn, const struct String *s) /*{{{*/
 int FS_putbinaryInteger(int chn, long int x) /*{{{*/
 {
   char s[sizeof(long int)];
-  int i;
+  size_t i;
 
   if (opened(chn,3)==-1) return -1;
   for (i=0; i<sizeof(x); ++i,x>>=8) s[i]=(x&0xff);
@@ -918,7 +920,8 @@ int FS_getbinaryString(int chn, struct String *s) /*{{{*/
   ssize_t len;
 
   if (opened(chn,3)==-1) return -1;
-  if (s->length && (len=read(file[chn]->binaryfd,s->character,s->length))!=s->length)
+  assert(((ssize_t)s->length)>=0);
+  if (s->length && (len=read(file[chn]->binaryfd,s->character,s->length))!=(ssize_t)s->length)
   {
     if (len==-1) FS_errmsg=strerror(errno);
     else FS_errmsg=_("End of file");
@@ -1274,6 +1277,7 @@ int FS_appendToString(int chn, struct String *s, int output_nl) /*{{{*/
   struct FileStream *f=file[chn];
   int c;
 
+  if (opened(chn, 1)==-1) return -1;
   if (f->tty && f->inSize==f->inCapacity)
   {
     if (edit(chn,output_nl)==-1) return (FS_errmsg ? -1 : 0);
@@ -1428,5 +1432,41 @@ void FS_allowIntr(int on) /*{{{*/
   sigaddset(&breakact.sa_mask,SIGINT);
   breakact.sa_flags=0;
   sigaction(SIGINT,&breakact,(struct sigaction *)0);
+}
+/*}}}*/
+int FS_getcwd(struct String *s) /*{{{*/
+{
+  if (String_size(s,128)==-1) return -1;
+
+  for(;;)
+  {
+    if (getcwd(s->character,s->length))
+    {
+      /* shrink size */
+      String_size(s,strlen(s->character));
+      break;
+    }
+    /* otherwise NULL was returned */
+    if (errno==ERANGE)
+    {
+      if (String_size(s,s->length*2)==-1) return -1;
+    }
+    else return -1;
+  }
+  return 0;
+}
+/*}}}*/
+int FS_absolute(struct String *s) /*{{{*/
+{
+  struct String cwd;
+
+  if (s->length>0 && s->character[0]=='/') return 0;
+  String_new(&cwd);
+  if (FS_getcwd(&cwd)==-1) return -1;
+  if (String_appendChar(&cwd,'/')==-1) return -1;
+  if (String_appendString(&cwd,s)==-1) return -1;
+  String_destroy(s);
+  *s=cwd;
+  return 0;
 }
 /*}}}*/

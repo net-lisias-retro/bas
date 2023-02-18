@@ -1,0 +1,22 @@
+#!/bin/sh
+
+echo -n $0: 'COMMANDCOUNT... '
+
+cat >test.bas <<eof
+print commandcount()
+eof
+
+cat >test.ref <<eof
+ 3 
+eof
+
+sh ./test/runbas test.bas a b c >test.data
+
+if cmp test.ref test.data
+then
+  rm -f test.*
+  echo passed
+else
+  echo failed
+  exit 1
+fi

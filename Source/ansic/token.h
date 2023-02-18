@@ -53,11 +53,13 @@ struct Identifier
   char name[2/* ... */];
 };
 
-struct Next
+struct For
 {
-  struct Pc fr;
   struct Pc var;
-  struct Pc limit;
+  struct Pc limitpc;
+  struct Value to;
+  struct Value step;
+  struct Pc exitfor;
   struct Pc body;
 };
 
@@ -321,7 +323,7 @@ struct Token
     /* T_FIELD              */
     /* T_FNEND              */
     /* T_FNRETURN           */
-    /* T_FOR                */ /* struct Pc exitfor */
+    /* T_FOR                */ struct For *fr;
     /* T_FOR_INPUT          */
     /* T_FOR_OUTPUT         */
     /* T_FOR_APPEND         */
@@ -376,7 +378,7 @@ struct Token
     /* T_NAME               */
     /* T_NE                 */
     /* T_NEW                */
-    /* T_NEXT               */ struct Next *next;
+    /* T_NEXT               */ struct Pc *forpc;
     /* T_NOT                */
     /* T_ON                 */ struct On on;
     /* T_ONERROR            */
@@ -412,7 +414,7 @@ struct Token
     /* T_SHELL              */
     /* T_SLEEP              */
     /* T_SPC                */
-    /* T_STEP               */
+    /* T_STEP               */ struct Value step;
     /* T_STOP               */
     /* T_STRING             */ struct String *string;
     /* T_SUB                */ /* struct Symbol *localSyms; */
@@ -422,7 +424,7 @@ struct Token
     /* T_SYSTEM             */
     /* T_TAB                */
     /* T_THEN               */
-    /* T_TO                 */
+    /* T_TO                 */ struct Value to;
     /* T_TRN                */
     /* T_TROFF              */
     /* T_TRON               */
@@ -454,6 +456,6 @@ extern int Token_property[];
 #define TOKEN_BINARYPRIORITY(t)     ((Token_property[t]>>2)&7)
 #define TOKEN_UNARYPRIORITY(t)      ((Token_property[t]>>5)&7)
 #define TOKEN_ISRIGHTASSOCIATIVE(t) (Token_property[t]&(1<<8))
-extern void Token_init(int backslash_colon, int uppercase);
+extern void Token_init(int backslash_colon, int do_repeat, int uppercase);
 
 #endif

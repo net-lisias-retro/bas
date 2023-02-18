@@ -1,3 +1,6 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
 /* The version string */
 #define VERSION @VERSION@
 
@@ -16,11 +19,23 @@
 /* Is there a tgmath.h? */
 #undef HAVE_TGMATH_H
 
+/* Does the system offer ssize_t? */
+#undef HAVE_SSIZE_T
+#ifndef HAVE_SSIZE_T
+typedef int ssize_t;
+#endif
+
 /* Define this as 1 if your system has lrint(). */
 #undef HAVE_LRINT
 
+/* Define this as 1 if your system has log2(). */
+#undef HAVE_LOG2
+
 /* Define this as 1 if your system has nanosleep(). */
 #undef HAVE_NANOSLEEP
+
+/* Define this as 1 if your system has gettimeofday(). */
+#undef HAVE_GETTIMEOFDAY
 
 /* What does tputs return? */
 #undef TPUTS_RETURNS_VOID
@@ -37,3 +52,5 @@
 
 /* Define if timeouts do not work in your termios (broken termios). */
 #undef USE_SELECT
+
+#endif

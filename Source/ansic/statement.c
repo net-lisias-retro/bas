@@ -1,18 +1,5 @@
 /* #includes */ /*{{{C}}}*//*{{{*/
-#include "config.h"
-
-#ifdef HAVE_GETTEXT
-#include <libintl.h>
-#define _(String) gettext(String)
-#else
-#define _(String) String
-#endif
-
 #include "statement.h"
-
-#ifdef USE_DMALLOC
-#include "dmalloc.h"
-#endif
 /*}}}*/
 
 struct Value *stmt_CALL(struct Value *value) /*{{{*/
@@ -371,11 +358,7 @@ struct Value *stmt_DEC_INC(struct Value *value) /*{{{*/
 
     lvaluepc=pc;
     if (pc.token->type!=T_IDENTIFIER) return Value_new_ERROR(value,MISSINGDECINCIDENT);
-    if (pass==DECLARE && Global_variable(&globals,pc.token->u.identifier,pc.token->u.identifier->defaultType,(pc.token+1)->type==T_OP?GLOBALARRAY:GLOBALVAR,0)==0)
-    {
-      return Value_new_ERROR(value,REDECLARATION);
-    }
-    if ((l=lvalue(value))->type==V_ERROR) return value;
+    if ((l=declare_lvalue(value))->type==V_ERROR) return value;
     if (l->type==V_INTEGER) VALUE_NEW_INTEGER(&stepValue,step);
     else if (l->type==V_REAL) VALUE_NEW_REAL(&stepValue,(double)step);
     else
@@ -891,12 +874,36 @@ struct Value *stmt_ENVIRON(struct Value *value) /*{{{*/
   if (eval(value,_("environment variable"))->type==V_ERROR || Value_retype(value,V_STRING)->type==V_ERROR) return value;
   if (pass==INTERPRET && value->u.string.character)
   {
-    if (putenv(value->u.string.character)==-1)
+    char *dup, *equal;
+
+    dup=strdup(value->u.string.character);
+
+    if (!dup)
     {
       Value_destroy(value);
       pc=epc;
       return Value_new_ERROR(value,ENVIRONFAILED,strerror(errno));
     }
+
+    if (!(equal=strchr(dup,'=')))
+    {
+      free(dup);
+      Value_destroy(value);
+      pc=epc;
+      return Value_new_ERROR(value,ENVIRONFAILED,strerror(errno));
+    }
+
+    *equal='\0';
+
+    if (setenv(dup, equal+1, 1)==-1)
+    {
+      free(dup);
+      Value_destroy(value);
+      pc=epc;
+      return Value_new_ERROR(value,ENVIRONFAILED,strerror(errno));
+    }
+
+    free(dup);
   }
   Value_destroy(value);
   return (struct Value*)0;
@@ -1021,7 +1028,7 @@ struct Value *stmt_EXITFOR(struct Value *value) /*{{{*/
       struct Pc *exitfor;
 
       if ((exitfor=findLabel(L_FOR))==(struct Pc*)0) return Value_new_ERROR(value,STRAYEXITFOR);
-      pc.token->u.exitfor=exitfor->token->u.exitfor;
+      pc.token->u.exitfor=exitfor->token->u.fr->exitfor;
     }
     ++pc.token;
   }
@@ -1128,89 +1135,100 @@ struct Value *stmt_FILES(struct Value *value) /*{{{*/
 /*}}}*/
 struct Value *stmt_FOR(struct Value *value) /*{{{*/
 {
-  struct Pc forpc=pc;
-  struct Pc varpc;
-  struct Pc limitpc;
-  struct Value limit,stepValue;
+  struct Pc forpc;
+  struct Pc topc;
+  struct Value to,stepValue;
 
+  forpc=pc;
   ++pc.token;
-  varpc=pc;
+  forpc.token->u.fr->var=pc;
   if (pc.token->type!=T_IDENTIFIER) return Value_new_ERROR(value,MISSINGLOOPIDENT);
-  if (assign(value)->type==V_ERROR) return value;
   if (pass==INTERPRET)
   {
-    ++pc.token;
-    if (eval(&limit,(const char*)0)->type==V_ERROR)
+    /* This is awful: The TO expression is evaluated before performing
+     * the initial assignment, although it is written after the assignment.
+     */
+    pc=forpc.token->u.fr->limitpc;
+    if (eval(&to,(const char*)0)->type==V_ERROR)
     {
-      *value=limit;
+      pc=forpc.token->u.fr->limitpc;
+      *value=to;
       return value;
     }
-    Value_retype(&limit,value->type);
-    assert(limit.type!=V_ERROR);
     if (pc.token->type==T_STEP) /* STEP x */ /*{{{*/
     {
-      struct Pc stepPc;
+      struct Pc stepValuePc;
 
       ++pc.token;
-      stepPc=pc;
+      stepValuePc=pc;
       if (eval(&stepValue,"`step'")->type==V_ERROR)
       {
         Value_destroy(value);
         *value=stepValue;
-        pc=stepPc;
+        pc=stepValuePc;
         return value;
       }
-      Value_retype(&stepValue,value->type);
-      assert(stepValue.type!=V_ERROR);
     }
     /*}}}*/
     else /* implicit numeric STEP */ /*{{{*/
     {
-      if (value->type==V_INTEGER) VALUE_NEW_INTEGER(&stepValue,1);
-      else VALUE_NEW_REAL(&stepValue,1.0);
+      VALUE_NEW_INTEGER(&stepValue,1);
     }
     /*}}}*/
-    if (Value_exitFor(value,&limit,&stepValue)) pc=forpc.token->u.exitfor;
-    Value_destroy(&limit);
-    Value_destroy(&stepValue);
+    pc=forpc.token->u.fr->var;
+  }
+  if (assign(value)->type==V_ERROR) return value;
+  if (pass==INTERPRET)
+  {
+    Value_retype(&to,value->type);
+    assert(to.type!=V_ERROR);
+    Value_destroy(&forpc.token->u.fr->to);
+    forpc.token->u.fr->to=to;
+
+    Value_retype(&stepValue,value->type);
+    assert(stepValue.type!=V_ERROR);
+    Value_destroy(&forpc.token->u.fr->step);
+    forpc.token->u.fr->step=stepValue;
+
+    if (Value_exitFor(value,&forpc.token->u.fr->to,&forpc.token->u.fr->step)) pc=forpc.token->u.fr->exitfor;
+    else pc=forpc.token->u.fr->body;
+    assert(pc.token);
     Value_destroy(value);
   }
   else
   {
     pushLabel(L_FOR,&forpc);
-    pushLabel(L_FOR_VAR,&varpc);
     if (pc.token->type!=T_TO)
     {
       Value_destroy(value);
       return Value_new_ERROR(value,MISSINGTO);
     }
     ++pc.token;
-    pushLabel(L_FOR_LIMIT,&pc);
-    limitpc=pc;
-    if (eval(&limit,(const char*)0)==(struct Value*)0)
+    forpc.token->u.fr->limitpc=pc;
+    if (eval(&to,(const char*)0)==(struct Value*)0)
     {
       Value_destroy(value);
       return Value_new_ERROR(value,MISSINGEXPR,"`to'");
     }
-    if (limit.type==V_ERROR)
+    if (to.type==V_ERROR)
     {
       Value_destroy(value);
-      *value=limit;
+      *value=to;
       return value;
     }
     if (pass!=DECLARE)
     {
-      struct Symbol *sym=varpc.token->u.identifier->sym;
+      struct Symbol *sym=forpc.token->u.fr->var.token->u.identifier->sym;
 
-      if (VALUE_RETYPE(&limit,sym->type==GLOBALVAR || sym->type==GLOBALARRAY ? sym->u.var.type : Auto_varType(&stack,sym))->type==V_ERROR)
+      if (VALUE_RETYPE(&to,sym->type==GLOBALVAR || sym->type==GLOBALARRAY ? sym->u.var.type : Auto_varType(&stack,sym))->type==V_ERROR)
       {
         Value_destroy(value);
-        *value=limit;
-        pc=limitpc;
+        *value=to;
+        pc=topc;
         return value;
       }
     }
-    Value_destroy(&limit);
+    Value_destroy(&to);
     if (pc.token->type==T_STEP) /* STEP x */ /*{{{*/
     {
       struct Pc stepPc;
@@ -1238,7 +1256,7 @@ struct Value *stmt_FOR(struct Value *value) /*{{{*/
       }
     }
     /*}}}*/
-    pushLabel(L_FOR_BODY,&pc);
+    forpc.token->u.fr->body=pc;
     Value_destroy(&stepValue);
     Value_destroy(value);
   }
@@ -1450,13 +1468,9 @@ struct Value *stmt_LINEINPUT(struct Value *value) /*{{{*/
   }
   if (pass==INTERPRET && channel==0) FS_flush(channel);
   /*}}}*/
-  if (pc.token->type!=T_IDENTIFIER) return Value_new_ERROR(value,MISSINGVARIDENT);
-  if (pass==DECLARE && Global_variable(&globals,pc.token->u.identifier,pc.token->u.identifier->defaultType,(pc.token+1)->type==T_OP?GLOBALARRAY:GLOBALVAR,0)==0)
-  {
-    return Value_new_ERROR(value,REDECLARATION);
-  }
   lpc=pc;
-  if (((l=lvalue(value))->type)==V_ERROR) return value;
+  if (pc.token->type!=T_IDENTIFIER) return Value_new_ERROR(value,MISSINGVARIDENT);
+  if ((l=declare_lvalue(value))->type==V_ERROR) return value;
   if (pass==COMPILE && l->type!=V_STRING)
   {
     pc=lpc;
@@ -2636,12 +2650,12 @@ struct Value *stmt_NEW(struct Value *value) /*{{{*/
 /*}}}*/
 struct Value *stmt_NEXT(struct Value *value) /*{{{*/
 {
-  struct Next **next=&pc.token->u.next;
+  struct Pc **next=&pc.token->u.forpc;
   int level=0;
 
   if (pass==INTERPRET) /*{{{*/
   {
-    struct Value *l,inc;
+    struct Value *l,*to,*step;
     struct Pc savepc;
 
     ++pc.token;
@@ -2649,36 +2663,19 @@ struct Value *stmt_NEXT(struct Value *value) /*{{{*/
     {
       /* get variable lvalue */ /*{{{*/
       savepc=pc;
-      pc=(*next)[level].var;
+      pc=(*next)[level].token->u.fr->var;
       if ((l=lvalue(value))->type==V_ERROR) return value;
       pc=savepc;
       /*}}}*/
-      /* get limit value and increment */ /*{{{*/
-      savepc=pc;
-      pc=(*next)[level].limit;
-      if (eval(value,_("limit"))->type==V_ERROR) return value;
-      Value_retype(value,l->type);
-      assert(value->type!=V_ERROR);
-      if (pc.token->type==T_STEP)
-      {
-        ++pc.token;
-        if (eval(&inc,_("step"))->type==V_ERROR)
-        {
-          Value_destroy(value);
-          *value=inc;
-          return value;
-        }
-      }
-      else VALUE_NEW_INTEGER(&inc,1);
-      VALUE_RETYPE(&inc,l->type);
-      assert(inc.type!=V_ERROR);
-      pc=savepc;
+      /* get to and step */ /*{{{*/
+      to=&((*next)[level].token->u.fr->to);
+      assert(to->type!=V_ERROR);
+      step=&((*next)[level].token->u.fr->step);
+      assert(step->type!=V_ERROR);
       /*}}}*/
-      Value_add(l,&inc,1);
-      if (Value_exitFor(l,value,&inc))
+      Value_add(l,step,1);
+      if (Value_exitFor(l,to,step))
       {
-        Value_destroy(value);
-        Value_destroy(&inc);
         if (pc.token->type==T_IDENTIFIER)
         {
           if (lvalue(value)->type==V_ERROR) return value;
@@ -2689,9 +2686,8 @@ struct Value *stmt_NEXT(struct Value *value) /*{{{*/
       }
       else
       {
-        pc=(*next)[level].body;
-        Value_destroy(value);
-        Value_destroy(&inc);
+        pc=(*next)[level].token->u.fr->body;
+        assert(pc.token);
         break;
       }
     }
@@ -2699,26 +2695,23 @@ struct Value *stmt_NEXT(struct Value *value) /*{{{*/
   /*}}}*/
   else /*{{{*/
   {
-    struct Pc *body;
-
     ++pc.token;
     while (1)
     {
-      if ((body=popLabel(L_FOR_BODY))==(struct Pc*)0) return Value_new_ERROR(value,STRAYNEXT,topLabelDescription());
+      struct Pc *nextpc;
+
       if (level)
       {
-        struct Next *more;
+        struct Pc *more;
 
-        more=realloc(*next,sizeof(struct Next)*(level+1));
+        more=realloc(*next,sizeof(struct Pc)*(level+1));
         *next=more;
       }
-      (*next)[level].body=*body;
-      (*next)[level].limit=*popLabel(L_FOR_LIMIT);
-      (*next)[level].var=*popLabel(L_FOR_VAR);
-      (*next)[level].fr=*popLabel(L_FOR);
+      if ((nextpc=popLabel(L_FOR))==(struct Pc*)0) return Value_new_ERROR(value,STRAYNEXT,topLabelDescription());
+      (*next)[level]=*nextpc;
       if (pc.token->type==T_IDENTIFIER)
       {
-        if (cistrcmp(pc.token->u.identifier->name,(*next)[level].var.token->u.identifier->name))
+        if (cistrcmp(pc.token->u.identifier->name,nextpc->token->u.fr->var.token->u.identifier->name))
         {
           return Value_new_ERROR(value,FORMISMATCH);
         }
@@ -2732,7 +2725,7 @@ struct Value *stmt_NEXT(struct Value *value) /*{{{*/
       }
       else break;
     }
-    while (level>=0) (*next)[level--].fr.token->u.exitfor=pc;
+    while (level>=0) (*next)[level--].token->u.fr->exitfor=pc;
   }
   /*}}}*/
   return (struct Value*)0;
@@ -3263,11 +3256,7 @@ struct Value *stmt_READ(struct Value *value) /*{{{*/
 
     lvaluepc=pc;
     if (pc.token->type!=T_IDENTIFIER) return Value_new_ERROR(value,MISSINGREADIDENT);
-    if (pass==DECLARE && Global_variable(&globals,pc.token->u.identifier,pc.token->u.identifier->defaultType,(pc.token+1)->type==T_OP?GLOBALARRAY:GLOBALVAR,0)==0)
-    {
-      return Value_new_ERROR(value,REDECLARATION);
-    }
-    if ((l=lvalue(value))->type==V_ERROR) return value;
+    if ((l=declare_lvalue(value))->type==V_ERROR) return value;
     if (pass==INTERPRET && dataread(value,l))
     {
       pc=lvaluepc;
@@ -3819,7 +3808,23 @@ struct Value *stmt_SWAP(struct Value *value) /*{{{*/
 /*}}}*/
 struct Value *stmt_SYSTEM(struct Value *value) /*{{{*/
 {
+  struct Pc statementpc;
+  int stat=0;
+
   ++pc.token;
+  statementpc=pc;
+  if (eval(value,(const char*)0))
+  {
+    if (value->type==V_ERROR || Value_retype(value,V_INTEGER)->type==V_ERROR) return value;
+    stat=value->u.integer;
+    Value_destroy(value);
+    if (stat<0 || stat>255)
+    {
+      pc=statementpc;
+      return Value_new_ERROR(value,OUTOFRANGE,_("exit status"));
+    }
+  }
+
   if (pass==INTERPRET)
   {
     if (program.unsaved)
@@ -3836,14 +3841,14 @@ struct Value *stmt_SYSTEM(struct Value *value) /*{{{*/
         if (tolower(ch)==*_("yes"))
         {
           bas_exit();
-          exit(0);
+          exit(stat);
         }
       }
     }
     else
     {
       bas_exit();
-      exit(0);
+      exit(stat);
     }
   }
   return (struct Value*)0;

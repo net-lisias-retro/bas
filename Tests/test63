@@ -1,0 +1,21 @@
+#!/bin/sh
+
+echo -n $0: 'SYSTEM/BYE status... '
+
+cat >test.bas <<eof
+system 42
+eof
+
+cat >test.ref <<eof
+eof
+
+sh ./test/runbas test.bas >test.data
+
+if [ $? -eq 42 ]
+then
+  rm -f test.*
+  echo passed
+else
+  echo failed
+  exit 1
+fi

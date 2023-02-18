@@ -14,12 +14,15 @@ LIBS=		@LIBS@
 
 CATALOGS=	de.mo
 
-all:		bas all-po-@USE_NLS@
+all:		bas test60 all-po-@USE_NLS@
 all-po-no:
 all-po-yes:	$(CATALOGS)
 
 bas:		main.o libbas.a getopt.o getopt1.o
 		$(CC) -o $@ $(LDFLAGS) main.o libbas.a getopt.o getopt1.o $(LIBS)
+
+test60:		test60.o libbas.a
+		$(CC) -o $@ $(LDFLAGS) test60.o libbas.a $(LIBS)
 
 token.c:	token.l token.h
 		flex -i -t token.l >token.c
@@ -43,8 +46,8 @@ install-po-yes:	$(CATALOGS)
 		  @INSTALL@ -m 644 $$cat $$dir/bas.mo; \
 		done
 
-check:		bas
-		for i in test/test*; do ./$$i || break; done
+check:		bas test60
+		for i in test/test*; do ./$$i || exit; done
 
 install:	all
 		@INSTALL@ -m 755 -d @bindir@
@@ -86,7 +89,7 @@ clean:
 #}}}
 #{{{ distclean
 distclean:	clean
-		rm -rf autom4te.cache bas config.cache config.h config.log config.status configure.lineno Makefile bas.1 test/runbas
+		rm -rf autom4te.cache bas test60 config.cache config.h config.log config.status configure.lineno Makefile bas.1 test/runbas
 #}}}
 #{{{ tar
 tar:		bas.pdf distclean

@@ -130,8 +130,8 @@ struct Value *Var_mat_assign(struct Var *this, struct Var *x, struct Value *err,
   if (work)
   {
     unsigned int i,j;
-    int unused=1-x->base;
-    int g0,g1;
+    unsigned int unused=1-x->base;
+    unsigned int g0,g1;
 
     assert(x->base==0 || x->base==1);
     assert(x->dim==1 || x->dim==2);
@@ -164,8 +164,8 @@ struct Value *Var_mat_addsub(struct Var *this, struct Var *x, struct Var *y, int
   if (work)
   {
     unsigned int i,j;
-    int unused=1-x->base;
-    int g0,g1;
+    unsigned int unused=1-x->base;
+    unsigned int g0,g1;
 
     assert(x->base==0 || x->base==1);
     assert(x->dim==1 || x->dim==2);
@@ -265,8 +265,8 @@ struct Value *Var_mat_scalarMult(struct Var *this, struct Value *factor, struct 
   if (work)
   {
     unsigned int i,j;
-    int unused=1-x->base;
-    int g0,g1;
+    unsigned int unused=1-x->base;
+    unsigned int g0,g1;
 
     assert(x->base==0 || x->base==1);
     assert(x->dim==1 || x->dim==2);
@@ -406,8 +406,8 @@ struct Value *Var_mat_redim(struct Var *this, unsigned int dim, const unsigned i
 {
   unsigned int i,j,size;
   struct Value *value;
-  int unused=1-this->base;
-  int g0,g1;
+  unsigned int unused=1-this->base;
+  unsigned int g0,g1;
 
   if (this->dim>0 && this->dim!=dim) return Value_new_ERROR(err,DIMENSION);
   for (size=1,i=0; i<dim; ++i) size*=geometry[i];

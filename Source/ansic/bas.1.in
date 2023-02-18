@@ -7,6 +7,7 @@ bas \- BASIC interpreter
 .ad l
 .B bas
 .RB [ \-b ]
+.RB [ \-d ]
 .RB [ \-l
 .IR file ]
 .RB [ \-r ]
@@ -15,6 +16,7 @@ bas \- BASIC interpreter
 .br
 .B bas
 .RB [ \-\-backslash\-colon ]
+.RB [ \-\-do\-repeat ]
 .RB [ \-\-lp
 .IR file ]
 .RB [ \-\-restricted ]
@@ -50,7 +52,11 @@ If a \fIprogram\fP is given, it is loaded, compiled and run; \fBbas\fP
 will exit if program execution \fBstop\fPs, \fBend\fPs or just hits the
 end of the program.  If the
 first line of a program file begins with \fB#!\fP, it is ignored by
-the interpreter.
+the interpreter, but kept when saving a program.
+.PP
+The name of a loaded program is converted to an absolute pathname,
+so loading or saving it again uses the originally specified file even
+if the current directory was changed since.
 .\"}}}
 .SS "Statements" \"{{{
 Each line of a BASIC program contains one or more of the statements below.
@@ -106,8 +112,9 @@ Decrement \fIlvalue\fP.
 .\"}}}
 .IP "\fBdef fn\fP\fIfunction\fP[\fB(\fP\fIparameter\fP[\fB,\fP\fIparameter\fP...]\fB)\fP]" \"{{{
 Define a function.  Function identifiers always start with \fBfn\fP.
-A function ends and returns its value using \fB=\fP\fIexpression\fP.
-Additionally, a function may return a value using \fBfnreturn\fP
+A single line function ends and returns its value using \fB=\fP\fIexpression\fP.
+A multi line function ends and returns its value with \fBfnend\fP.
+Additionally, a multi line function may return a value using \fBfnreturn\fP
 \fIexpression\fP before reaching its end.  Functions can not be declared
 in direct mode.  Note: Multi line functions are not supported by all
 BASIC dialects.  Some dialects allow white space between the \fBfn\fP
@@ -220,20 +227,21 @@ Only the meta characters \fB*?[]\fP are passed through.
 .\"}}}
 .IP "\fBfor\fP \fIlvalue\fP \fB=\fP \fIexpression\fP \fBto\fP \fIexpression\fP [\fBstep\fP \fIexpression\fP]" \"{{{
 .IP "\fBnext\fP \fIlvalue\fP{\fB,\fP\fIlvalue\fP}"
-The \fBfor\fP loop performs the initial variable assignment and then
-executes the statements inside the loop, if the variable is lower or equal
-than the limit (or greater than for negative steps).  The \fBnext\fP
-statement verifies if the variable already reached the value of the
-\fBto\fP \fIexpression\fP.  If not, it increments if by the value of
-the \fBstep\fP \fIexpression\fP and causes a new repetition.  A missing
-\fBstep\fP \fIexpression\fP is treated as \fBstep 1\fP.  The \fBnext\fP
-statement may be followed by a list of lvalues.  Due to the dynamic variable
-geometry, the lvalues themselves
-are only checked for belonging to the same variable as those in \fBfor\fP.
-If no lvalues are given, the
-innermost loop is terminated.  For loops can be left by \fBexit for\fP.
-Note: That statement is not offered by all BASIC dialects and most restrict
-loop variables to scalar variables.
+The \fBfor\fP loop evaluates first the \fBto\fP and the \fBstep\fP
+expression, storing their values for all loop executions, and afterwards
+performs the initial variable assignment.
+Then it executes the statements inside the loop, if the variable is lower
+or equal than the \fBto\fP value (or greater than for negative steps).
+The \fBnext\fP statement verifies if the variable already reached the
+\fBto\fP value.  If not, it increments if by the evaluated \fBstep\fP
+value and causes a new repetition.  A missing \fBstep\fP \fIexpression\fP
+is treated as \fBstep 1\fP.  The \fBnext\fP statement may be followed
+by a list of lvalues.  Due to the dynamic variable geometry, the lvalues
+themselves are only checked for belonging to the same variable as those
+in \fBfor\fP.  If no lvalues are given, the innermost loop is terminated.
+For loops can be left by \fBexit for\fP.  Note: That statement is not
+offered by all BASIC dialects.  Most dialects restrict loop variables
+to scalar variables.
 .\"}}}
 .IP "\fBget\fP [\fB#\fP]\fIchannel%\fP [\fB,\fP\fIrecord\fP]" \"{{{
 Read the record buffer of \fIchannel%\fP from the file it is connected to,
@@ -449,8 +457,11 @@ are not written with a heading blank.
 Replace the characters starting at the given \fIposition%\fP inside
 \fIlvalue$\fP with the characters from \fIvalue$\fP.  An optional
 \fIlength%\fP limits how many characters of \fIlvalue$\fP are replaced.
-The replacement will not go beyond the length of \fIlvalue$\fP.  Note:
-Not all BASIC dialects support this statement.
+The replacement will not go beyond the length of \fIlvalue$\fP.
+The string length always stays unchanged and excess characters will not
+be copied. Trying to copy more characters than given is ignored and does
+not cause an error.
+Note: Not all BASIC dialects support this statement.
 .\"}}}
 .IP "\fBmkdir\fP \fIdirectory$\fP" \"{{{
 Create a \fIdirectory$\fP.
@@ -741,8 +752,9 @@ mode.  This is the ANSI syntax.
 Swap the contents of \fIlvalue1\fP and \fIlvalue2\fP.  Both must
 be of identical type.
 .\"}}}
-.IP "\fBsystem\fP" \"{{{
-Exit from \fBbas\fP.  Alternatively, \fBbye\fP may be used.
+.IP "\fBsystem\fP [\fIstatus%\fP]" \"{{{
+Exit from \fBbas\fP. Alternatively, \fBbye\fP may be used. An optional exit status
+between 0 and 255 may be specified, otherwise the status 0 will be returned.
 .\"}}}
 .IP "\fBtron\fP" \"{{{
 Enable tracing by printing the line number of each executed program line.
@@ -887,6 +899,12 @@ arguments with embedded spaces.
 .IP "\fBcommand$(\fP\fIn%\fP\fB)\fP"
 Return the \fIn%\fPth argument passed to the program, starting with 1.
 The first returned argument (index 0) is the program name.
+.IP "\fBcommandcount\fP"
+Return the number of command line arguments (the highest index
+that may be used as argument for \fBcommand$()\fP. Classic BASIC
+interpreters loop through arguments until \fBcommand$()\fP returns
+an empty string, which is wrong, because empty arguments are valid
+and may be followed by non-empty arguments.
 .IP "\fBcos(\fP\fIx_rad\fP\fB)\fP"
 Return the cosine value of \fIx_rad\fP.
 .IP "\fBcvd(\fP\fIx$\fP\fB)\fP"
@@ -1101,6 +1119,9 @@ one or missing, a real number between 0.0 and 1.0 is returned.  If \fIx%\fP is
 negative, the random number generator will be seeded with \fB-\fP\fIx%\fP
 and the functions returns a value as if \fB-\fP\fIx%\fP had been passed
 to it.
+.IP "\fBrnd(\fP\fIa%\fP\fB,\fP\fIb%\fP\fB)\fP"
+Return a random integer number between \fIa%\fP and \fIb%\fP, inclusively.
+\fIa%\fP must be less than \fIb%\fP.
 .IP "\fBrtrim$(\fP\fIstring$\fP\fB)\fP"
 Return the string without trailing spaces.
 .IP "\fBseg$(\fP\fIstring$\fP\fB,\fP\fIposition%\fP\fB,\fP\fIlen%\fP\fB)\fP"
@@ -1148,8 +1169,14 @@ anywhere else, hexadecimal values are specified by a leading \fB&h\fP.
 .SH OPTIONS \"{{{
 .IP "\fB\-b\fP, \fB\-\-backslash\-colon\fP"
 Convert backslashs to colons.  By default, a backslash is the operator
-for integer division, but in some BASIC dialects it forms compound
+for integer division, but in some rare BASIC dialects it forms compound
 statements as the colon does.
+.IP "\fB\-d\fP, \fB\-\-do\-repeat\fP"
+Convert \fBDO\fP to \fBREPEAT\fP.  Some rare BASIC dialects do not have
+the ANSI \fBDO\fP loop, but \fBDO\fP/\fBUNTIL\fP.  Although it would
+be possible to parse both versions, the resulting error message for
+faulty code would be very confusing.
+Programs for those dialects can be converted instead.
 .IP "\fB\-l\fP \fIfile\fP, \fB\-\-lp\fP \fIfile\fP"
 Write \fBLLIST\fP and \fBLPRINT\fP output to \fIfile\fP.  By default,
 that output will be written to \fB/dev/null\fP.
@@ -1165,7 +1192,7 @@ Output usage and exit.
 Display version information and exit.
 .\"}}}
 .SH AUTHOR \"{{{
-This program is copyright 1999\(en2015 Michael Haardt
+This program is copyright 1999\(en2022 Michael Haardt
 <michael@moria.de>.
 .PP
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1191,6 +1218,12 @@ There has been a \fIbas\fP(1) command in UNIX v7, but its syntax
 was strongly influenced by C, unlike common classic BASIC dialects, and
 thus not compatible with this implementation.
 .\"}}}
+.SH NOTES \"{{{
+\fBbas\fP is meant to get old code running again. If you always missed a
+programming language as easy as BASIC used to be back then, then advance
+and learn Ruby instead. It brings back the same ease, fun and magic of
+programming, but it is wonderful where BASIC is weird.
+\"}}}
 .SH "SEE ALSO" \"{{{
 The Usenet group comp.lang.basic.misc discusses the classic BASIC dialect.
 .\"}}}

@@ -2,6 +2,9 @@
 /* #includes */ /*{{{C}}}*//*{{{*/
 #include "config.h"
 
+#ifdef HAVE_GETTIMEOFDAY
+#include <sys/time.h>
+#endif
 #include <sys/times.h>
 #include <assert.h>
 #include <ctype.h>
@@ -180,7 +183,7 @@ static struct Value *instr(struct Value *v, long int start, long int len, struct
   if (len<0) return Value_new_ERROR(v,OUTOFRANGE,_("length"));
   if (((size_t)start)>=haystackLength) return Value_new_INTEGER(v,0);
   haystackChars+=start; haystackLength-=start;
-  if (haystackLength>len) haystackLength=len;
+  if (haystackLength>(size_t)len) haystackLength=len;
   found=1+start;
   while (needleLength<=haystackLength)
   {
@@ -267,6 +270,13 @@ static struct Value *rnd(struct Value *v, long int x) /*{{{*/
   if (x<0) srand(-x);
   if (x==0 || x==1) Value_new_REAL(v,rand()/(double)RAND_MAX);
   else Value_new_REAL(v,rand()%x+1);
+  return v;
+}
+/*}}}*/
+static struct Value *rnd2(struct Value *v, long int a, long int b) /*{{{*/
+{
+  if (a>=b) return Value_new_ERROR(v,OUTOFRANGE,_("boundaries"));
+  Value_new_INTEGER(v,a+rand()%(b-a+1));
   return v;
 }
 /*}}}*/
@@ -404,6 +414,11 @@ static struct Value *fn_commandd(struct Value *v, struct Auto *stack) /*{{{*/
   }
   else if (a<=bas_argc) String_appendChars(&v->u.string,bas_argv[a-1]);
   return v;
+}
+/*}}}*/
+static struct Value *fn_commandcount(struct Value *v, struct Auto *stack) /*{{{*/
+{
+  return Value_new_INTEGER(v,bas_argc);
 }
 /*}}}*/
 static struct Value *fn_cvd(struct Value *v, struct Auto *stack) /*{{{*/
@@ -881,9 +896,10 @@ static struct Value *fn_left(struct Value *v, struct Auto *stack) /*{{{*/
 {
   struct String *s=stringValue(stack,0);
   long int len=intValue(stack,1);
-  int left=((size_t)len)<s->length ? len : s->length;
+  size_t left;
 
-  if (left<0) return Value_new_ERROR(v,OUTOFRANGE,_("length"));
+  if (len<0) return Value_new_ERROR(v,OUTOFRANGE,_("length"));
+  left=((size_t)len)<s->length ? (size_t)len : s->length;
   Value_new_STRING(v);
   String_size(&v->u.string,left);
   if (left) memcpy(v->u.string.character,s->character,left);
@@ -923,7 +939,14 @@ static struct Value *fn_log10(struct Value *v, struct Auto *stack) /*{{{*/
 static struct Value *fn_log2(struct Value *v, struct Auto *stack) /*{{{*/
 {
   if (realValue(stack,0)<=0.0) Value_new_ERROR(v,UNDEFINED,_("Logarithm of negative value"));
+#ifdef HAVE_LOG2
   else Value_new_REAL(v,log2(realValue(stack,0)));
+#else
+#ifndef M_LN2
+#define M_LN2 0.69314718055994530942
+#endif
+  else Value_new_REAL(v,log(realValue(stack,0))/M_LN2);
+#endif
   return v;
 }
 /*}}}*/
@@ -1209,6 +1232,43 @@ static struct Value *fn_rndd(struct Value *v, struct Auto *stack) /*{{{*/
   return rnd(v,limit);
 }
 /*}}}*/
+static struct Value *fn_rndii(struct Value *v, struct Auto *stack) /*{{{*/
+{
+  return rnd2(v,intValue(stack,0),intValue(stack,1));
+}
+/*}}}*/
+static struct Value *fn_rndid(struct Value *v, struct Auto *stack) /*{{{*/
+{
+  int overflow;
+  long int b;
+
+  b=Value_toi(realValue(stack,1),&overflow);
+  if (overflow) return Value_new_ERROR(v,OUTOFRANGE,_("b"));
+  return rnd2(v,intValue(stack,0),b);
+}
+/*}}}*/
+static struct Value *fn_rnddi(struct Value *v, struct Auto *stack) /*{{{*/
+{
+  int overflow;
+  long int a;
+
+  a=Value_toi(realValue(stack,0),&overflow);
+  if (overflow) return Value_new_ERROR(v,OUTOFRANGE,_("a"));
+  return rnd2(v,a,intValue(stack,1));
+}
+/*}}}*/
+static struct Value *fn_rnddd(struct Value *v, struct Auto *stack) /*{{{*/
+{
+  int overflow;
+  long int a,b;
+
+  a=Value_toi(realValue(stack,0),&overflow);
+  if (overflow) return Value_new_ERROR(v,OUTOFRANGE,_("a"));
+  b=Value_toi(realValue(stack,1),&overflow);
+  if (overflow) return Value_new_ERROR(v,OUTOFRANGE,_("b"));
+  return rnd2(v,a,b);
+}
+/*}}}*/
 static struct Value *fn_rtrim(struct Value *v, struct Auto *stack) /*{{{*/
 {
   struct String *s=stringValue(stack,0);
@@ -1337,7 +1397,18 @@ static struct Value *fn_tan(struct Value *v, struct Auto *stack) /*{{{*/
 /*}}}*/
 static struct Value *fn_timei(struct Value *v, struct Auto *stack) /*{{{*/
 {
-  return Value_new_INTEGER(v,(unsigned long)(times((struct tms*)0)/(sysconf(_SC_CLK_TCK)/100.0)));
+#ifdef HAVE_GETTIMEOFDAY
+  struct timeval tp;
+
+  gettimeofday(&tp, NULL);
+
+  return Value_new_INTEGER(v,(long)(tp.tv_sec*100+tp.tv_usec/10000));
+#else
+  /* Many OS allow NULL, but some don't and POSIX does not specifically allow NULL. */
+  struct tms unused;
+
+  return Value_new_INTEGER(v,(unsigned long)(times(&unused)/(sysconf(_SC_CLK_TCK)/100.0)));
+#endif
 }
 /*}}}*/
 static struct Value *fn_times(struct Value *v, struct Auto *stack) /*{{{*/
@@ -1474,6 +1545,7 @@ struct Global *Global_new(struct Global *this) /*{{{*/
   builtin(this,"command$",V_STRING, fn_command,   0);
   builtin(this,"command$",V_STRING, fn_commandi,  1,V_INTEGER);
   builtin(this,"command$",V_STRING, fn_commandd,  1,V_REAL);
+  builtin(this,"commandcount",V_INTEGER, fn_commandcount,  0);
   builtin(this,"cos",     V_REAL,   fn_cos,       1,V_REAL);
   builtin(this,"cvd",     V_REAL,   fn_cvd,       1,V_STRING);
   builtin(this,"cvi",     V_INTEGER,fn_cvi,       1,V_STRING);
@@ -1568,6 +1640,10 @@ struct Global *Global_new(struct Global *this) /*{{{*/
   builtin(this,"rnd",     V_INTEGER,fn_rnd,       0);
   builtin(this,"rnd",     V_INTEGER,fn_rndd,      1,V_REAL);
   builtin(this,"rnd",     V_INTEGER,fn_rndi,      1,V_INTEGER);
+  builtin(this,"rnd",     V_INTEGER,fn_rndii,     2,V_INTEGER,V_INTEGER);
+  builtin(this,"rnd",     V_INTEGER,fn_rndid,     2,V_INTEGER,V_REAL);
+  builtin(this,"rnd",     V_INTEGER,fn_rnddi,     2,V_REAL,V_INTEGER);
+  builtin(this,"rnd",     V_INTEGER,fn_rnddd,     2,V_REAL,V_REAL);
   builtin(this,"rtrim$",  V_STRING, fn_rtrim,     1,V_STRING);
   builtin(this,"seg$",    V_STRING, fn_mid3ii,    3,V_STRING,V_INTEGER,V_INTEGER);
   builtin(this,"seg$",    V_STRING, fn_mid3id,    3,V_STRING,V_INTEGER,V_REAL);

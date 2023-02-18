@@ -26,6 +26,7 @@ struct Program
   int runnable;
   int unsaved;
   struct String name;
+  struct String shebang;
   struct Token **code;
   struct Scope *scope;
 };

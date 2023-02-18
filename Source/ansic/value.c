@@ -181,7 +181,7 @@ struct Value *Value_new_ERROR(struct Value *this, int code, const char *error, .
 
   assert(this!=(struct Value*)0);
   va_start(ap,error);
-  vsprintf(buf,error,ap);
+  vsnprintf(buf,sizeof(buf),error,ap);
   va_end(ap);
   this->type=V_ERROR;
   this->u.error.code=code;
@@ -1181,8 +1181,7 @@ struct String *Value_toString(struct Value *this, struct String *s, char pad, in
       else format_double(&buf,this->u.real,width,precision,exponent);
       if (commas)
       {
-        size_t digits;
-        int first;
+        size_t digits,first;
 
         first=(headingsign?1:0);
         for (digits=first; digits<buf.length && buf.character[digits]>='0' && buf.character[digits]<='9'; ++digits);
@@ -1446,16 +1445,19 @@ struct String *Value_toWrite(struct Value *this, struct String *s) /*{{{*/
 /*}}}*/
 struct Value *Value_nullValue(enum ValueType type) /*{{{*/
 {
-  static struct Value integer={ V_INTEGER };
-  static struct Value real={ V_REAL };
-  static struct Value string={ V_STRING };
+  static struct Value integer;
+  static struct Value real;
+  static struct Value string;
   static char n[]="";
   static int init=0;
 
   if (!init)
   {
+    integer.type=V_INTEGER;
     integer.u.integer=0;
+    real.type=V_REAL;
     real.u.real=0.0;
+    string.type=V_STRING;
     string.u.string.length=0;
     string.u.string.character=n;
   }

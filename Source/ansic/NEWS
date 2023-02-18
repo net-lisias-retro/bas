@@ -1,14 +1,23 @@
-Changes compared to version 2.4
+Changes compared to version 2.5
 
-o  truncate bug fixed
-o  Multi line if with hanging comment works now
-o  Add files command
-o  Fixed bug in expression parser
-o  OPTION BASE bug fixed
-o  Matrix inversion test improved
-o  WIDTH 0 bug fixed
-o  Missing error check on multi assignments added
-o  Wrong FOR loop management fixed
-o  Replaced wrong int assignment with long assignment for integers
-o  unnum bugs fixed
-o  HP-UX build works again
+o  Only evaluate TO and STEP expressions once
+o  Evaluate TO expression before evaluating the loop assignment
+o  Fixed times() to have an argument for portability.
+o  Check for log2 for not depending on C99
+o  Check more gcc warnings being supported
+o  Fixed various warnings
+o  INC/DEC/INPUT/READ of local variable works
+o  Prefer gettimeofday() over times() for TIME implementation
+o  Accept "pr" as another shortcut for "print"
+o  Added option -d to convert DO to REPEAT
+o  Added rnd(a,b) for a range
+o  Added commandcount()
+o  Use setenv instead of putenv
+o  Check MID$ assignment overrun
+o  Add optional status to SYSTEM
+o  Keep first #! line when saving a program
+o  INPUT from closed channel fixed
+o  ON ERROR no longer catches terminal interrupt
+o  A relative program file name is converted to an absolute pathname
+   for SAVE without arguments saving it back to the original file.
+o  FNEND explained in manual

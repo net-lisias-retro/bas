@@ -111,5 +111,7 @@ extern int FS_memInput(int address);
 extern int FS_portOutput(int address, int value);
 extern int FS_memOutput(int address, int value);
 extern void FS_allowIntr(int on);
+extern int FS_getcwd(struct String *s);
+extern int FS_absolute(struct String *s);
 
 #endif
