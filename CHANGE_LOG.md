@@ -1,5 +1,18 @@
 # bas/L :: Change Log
 
+* 2019-0509: 2.5 (Michael Haardt).
+	+ truncate bug fixed
+	+ Multi line if with hanging comment works now
+	+ Add files command
+	+ Fixed bug in expression parser
+	+ OPTION BASE bug fixed
+	+ Matrix inversion test improved
+	+ WIDTH 0 bug fixed
+	+ Missing error check on multi assignments added
+	+ Wrong FOR loop management fixed
+	+ Replaced wrong int assignment with long assignment for integers
+	+ unnum bugs fixed
+	+ HP-UX build works again
 * 2013-0620: 2.4 (Michael Haardt).
 	+ Matrix inversion on integer arrays with option base 1 fixed
 	+ PRINT USING behaviour for ! fixed
