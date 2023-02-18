@@ -1,5 +1,26 @@
 # bas/L :: Change Log
 
+* 2023-0000: 2.6 (Michael Haardt). UNRELEASED.
+	+ Only evaluate TO and STEP expressions once
+	+ Evaluate TO expression before evaluating the loop assignment
+	+ Fixed times() to have an argument for portability.
+	+ Check for log2 for not depending on C99
+	+ Check more gcc warnings being supported
+	+ Fixed various warnings
+	+ INC/DEC/INPUT/READ of local variable works
+	+ Prefer gettimeofday() over times() for TIME implementation
+	+ Accept "pr" as another shortcut for "print"
+	+ Added option -d to convert DO to REPEAT
+	+ Added rnd(a,b) for a range
+	+ Added commandcount()
+	+ Use setenv instead of putenv
+	+ Check MID$ assignment overrun
+	+ Add optional status to SYSTEM
+	+ Keep first #! line when saving a program
+	+ INPUT from closed channel fixed
+	+ ON ERROR no longer catches terminal interrupt
+	+ A relative program file name is converted to an absolute pathname for SAVE without arguments saving it back to the original file.
+	+ FNEND explained in manual
 * 2019-0509: 2.5 (Michael Haardt).
 	+ truncate bug fixed
 	+ Multi line if with hanging comment works now
